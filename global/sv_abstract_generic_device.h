@@ -1,91 +1,88 @@
-﻿#ifndef SV_ABSTRACT_KSUTS_DEVICE_H
-#define SV_ABSTRACT_KSUTS_DEVICE_H
+﻿#ifndef SV_ABSTRACT_GENERIC_DEVICE_H
+#define SV_ABSTRACT_GENERIC_DEVICE_H
 
 #include <QObject>
 #include <QUdpSocket>
 
-#include "sv_abstract_device.h"
-
-#include "../../svlib/sv_abstract_logger.h"
 #include "../../svlib/sv_udp_params.h"
 #include "../../svlib/sv_serial_params.h"
+
+#include "sv_abstract_device.h"
 #include "device_params.h"
 
 #define MAX_PACKET_SIZE 0xFFFF
 
-namespace dev {
 
- class SvAbstractKsutsDevice;
- class SvAbstractKsutsThread;
+class SvAbstractGenericDevice;
+class SvAbstractGenericThread;
 
- class SvAbstractSerialThread;
- class SvAbstractUdpThread;
+class SvAbstractSerialThread;
+class SvAbstractUdpThread;
 
- struct BUFF
- {
-   BUFF() {}
+struct BUFF
+{
+  BUFF() {}
 
-   quint8  buf[MAX_PACKET_SIZE];
-   quint64 offset = 0;
+  quint8  buf[MAX_PACKET_SIZE];
+  quint64 offset = 0;
 
- };
+};
 
- struct DATA
- {
-   DATA() {}
+struct DATA
+{
+  DATA() {}
 
-   qint8  data[MAX_PACKET_SIZE];
-   quint8  data_type;
-   quint8  data_length;
-   quint16 crc;
+  qint8  data[MAX_PACKET_SIZE];
+  quint8  data_type;
+  quint8  data_length;
+  quint16 crc;
 
- };
+};
 
-}
 
-class dev::SvAbstractKsutsDevice : public dev::SvAbstractDevice
+
+class SvAbstractGenericDevice : public ad::SvAbstractDevice
 {
   Q_OBJECT
 
 public:
-  SvAbstractKsutsDevice(dev::HardwareType type, sv::SvAbstractLogger *logger = nullptr);
-  ~SvAbstractKsutsDevice();
+  SvAbstractGenericDevice(sv::SvAbstractLogger *logger = nullptr);
+  ~SvAbstractGenericDevice();
 
   bool open();
   void close();
 
-  virtual bool setup(const dev::DeviceInfo& info);
+//  virtual bool setup(const ad::DeviceInfo& info) = 0;
 
   sv::log::sender make_dbus_sender();
 
 protected:
   SvException* p_exception;
 
-  virtual bool create_new_thread() = 0;
+//  virtual bool create_new_thread() = 0;
 
 
 private slots:
-  void stopThread();
   void deleteThread();
 
 signals:
-  void stop_thread();
+  void stopThread();
 
 };
 
-class dev::SvAbstractKsutsThread: public dev::SvAbstractDeviceThread
+class SvAbstractGenericThread: public ad::SvAbstractDeviceThread
 {
   Q_OBJECT
 
 public:
-  SvAbstractKsutsThread(dev::SvAbstractDevice* device, sv::SvAbstractLogger *logger = nullptr):
-    dev::SvAbstractDeviceThread(device, logger)
+  SvAbstractGenericThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger *logger = nullptr):
+    ad::SvAbstractDeviceThread(device, logger)
   ,p_is_active(false)
   {
 
   }
 
-  virtual ~SvAbstractKsutsThread() { }
+  virtual ~SvAbstractGenericThread() { }
 
   virtual void setIfcParams(const QString& params) throw(SvException&) = 0;
 
@@ -97,8 +94,8 @@ protected:
 
   bool p_is_active;
 
-  dev::BUFF p_buff;
-  dev::DATA p_data;
+  BUFF p_buff;
+  DATA p_data;
 
   QTimer  p_reset_timer;
 
@@ -121,15 +118,15 @@ public slots:
 };
 
 
-class dev::SvAbstractUdpThread: public dev::SvAbstractKsutsThread
+class SvAbstractUdpThread: public SvAbstractGenericThread
 {
   Q_OBJECT
 
 public:
-  SvAbstractUdpThread(dev::SvAbstractDevice* device, sv::SvAbstractLogger *logger = nullptr);
+  SvAbstractUdpThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger *logger = nullptr);
 //  virtual ~SvAbstractUdpThread() override;
 
-  virtual void setIfcParams(const QString& params) throw(SvException&);
+//  virtual void setIfcParams(const QString& params) throw(SvException&);
 
   virtual void open() throw(SvException&);
 //  virtual void stop() override;
@@ -147,15 +144,15 @@ protected:
 };
 
 
-class dev::SvAbstractSerialThread: public dev::SvAbstractKsutsThread
+class SvAbstractSerialThread: public SvAbstractGenericThread
 {
   Q_OBJECT
 
 public:
-  SvAbstractSerialThread(dev::SvAbstractDevice* device, sv::SvAbstractLogger *logger = nullptr);
+  SvAbstractSerialThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger *logger = nullptr);
 //  virtual ~SvAbstractSerialDeviceThread();
 
-  virtual void setIfcParams(const QString& params) throw(SvException&);
+//  virtual void setIfcParams(const QString& params) throw(SvException&);
 
   virtual void open() throw(SvException&);
   virtual quint64 write(const QByteArray& data);
@@ -172,4 +169,4 @@ protected:
 
 
 
-#endif // SV_ABSTRACT_KSUTS_DEVICE_H
+#endif // SV_ABSTRACT_GENERIC_DEVICE_H

@@ -36,7 +36,7 @@ SOURCES += main.cpp \
     ../global/sv_dbus.cpp \
     ../../svlib/sv_abstract_logger.cpp \
     ../../svlib/sv_fnt.cpp \
-    ../global/sv_abstract_ksuts_device.cpp
+    ../global/sv_abstract_generic_device.cpp
 
 HEADERS += \
     ../../svlib/sv_exception.h \
@@ -54,8 +54,8 @@ HEADERS += \
     ../global/device_params.h \
     ../../svlib/sv_abstract_logger.h \
     ../../svlib/sv_serial_params.h \
-    ../global/sv_abstract_ksuts_device.h \
-    ../../svlib/sv_udp_params.h
+    ../../svlib/sv_udp_params.h \
+    ../global/sv_abstract_generic_device.h
 
 DISTFILES += \
     ../../../nmea/config.json

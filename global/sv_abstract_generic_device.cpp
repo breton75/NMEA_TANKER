@@ -1,18 +1,19 @@
-﻿#include "sv_abstract_ksuts_device.h"
+﻿#include "sv_abstract_generic_device.h"
 
-dev::SvAbstractKsutsDevice::SvAbstractKsutsDevice(dev::HardwareType type, sv::SvAbstractLogger *logger):
-  dev::SvAbstractDevice(type, logger)
+SvAbstractGenericDevice::SvAbstractGenericDevice(sv::SvAbstractLogger *logger):
+  ad::SvAbstractDevice(logger)
 {
 
 }
 
-dev::SvAbstractKsutsDevice::~SvAbstractKsutsDevice()
+SvAbstractGenericDevice::~SvAbstractGenericDevice()
 {
-  stopThread();
+  emit stopThread();
   deleteLater();
 }
 
-bool dev::SvAbstractKsutsDevice::setup(const dev::DeviceInfo& info)
+/*
+bool SvAbstractGenericDevice::setup(const ad::DeviceInfo& info)
 {
   p_info = info;
 
@@ -33,21 +34,20 @@ bool dev::SvAbstractKsutsDevice::setup(const dev::DeviceInfo& info)
     return false;
   }
 }
+*/
 
-bool dev::SvAbstractKsutsDevice::open()
+bool SvAbstractGenericDevice::open()
 {
   try {
 
-    if(!create_new_thread())
-      p_exception->raise(QString("Неизвестный тип интерфейса: %1").arg(p_info.ifc_name));
+    create_new_thread();
 
-    p_thread->setIfcParams(p_info.ifc_params);
-
-    connect(p_thread, &dev::SvAbstractDeviceThread::finished, this, &dev::SvAbstractKsutsDevice::deleteThread);
-    connect(this, &SvAbstractKsutsDevice::stop_thread, p_thread, &dev::SvAbstractDeviceThread::stop);
+    connect(p_thread, &ad::SvAbstractDeviceThread::finished, this, &SvAbstractGenericDevice::deleteThread);
+    connect(this, &SvAbstractGenericDevice::stopThread, p_thread, &ad::SvAbstractDeviceThread::stop);
 //    connect(p_thread, &dev::SvAbstractDeviceThread::finished, p_thread, &dev::SvAbstractDeviceThread::deleteLater);
 
     p_thread->open();
+
     p_thread->start();
 
     return true;
@@ -64,51 +64,31 @@ bool dev::SvAbstractKsutsDevice::open()
   }
 }
 
-void dev::SvAbstractKsutsDevice::close()
+void SvAbstractGenericDevice::close()
 {
-  stopThread();
+  emit stopThread();
 
   p_isOpened = false;
 }
 
-void dev::SvAbstractKsutsDevice::stopThread()
+void SvAbstractGenericDevice::deleteThread()
 {
-  // тут надо делать через сигнал слот, иначе ругается что останавливаем сокет или порт из другого потока
-  emit stop_thread();
-
+  if(p_thread) delete p_thread;
 }
 
-void dev::SvAbstractKsutsDevice::deleteThread()
-{
-  delete p_thread; //->deleteLater();
-}
-
-sv::log::sender dev::SvAbstractKsutsDevice::make_dbus_sender()
+sv::log::sender SvAbstractGenericDevice::make_dbus_sender()
 {
   return sv::log::sender::make(p_logger->options().log_sender_name_format,
                                p_info.name,
-                               p_info.index);
+                               p_info.id);
 }
 
 
 /**         SvAbstractUdpDeviceThread         **/
-dev::SvAbstractUdpThread::SvAbstractUdpThread(dev::SvAbstractDevice* device, sv::SvAbstractLogger *logger):
-  dev::SvAbstractKsutsThread(device, logger)
+SvAbstractUdpThread::SvAbstractUdpThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger *logger):
+  SvAbstractGenericThread(device, logger)
 {
 
-}
-
-void dev::SvAbstractUdpThread::setIfcParams(const QString& params) throw(SvException&)
-{
-  try {
-
-    p_ifc_params = sv::UdpParams::fromJsonString(params);
-
-  }
-  catch(SvException& e) {
-
-    throw e;
-  }
 }
 
 //dev::SvAbstractUdpThread::~SvAbstractUdpThread()
@@ -117,7 +97,7 @@ void dev::SvAbstractUdpThread::setIfcParams(const QString& params) throw(SvExcep
 //  dev::SvAbstractKsutsThread::stop();
 //}
 
-void dev::SvAbstractUdpThread::open() throw(SvException&)
+void SvAbstractUdpThread::open() throw(SvException&)
 {
   if(!p_socket.bind(p_ifc_params.recv_port, QAbstractSocket::DontShareAddress))
     throw p_exception.assign(p_socket.errorString());
@@ -134,7 +114,7 @@ void dev::SvAbstractUdpThread::open() throw(SvException&)
 
 }
 
-quint64 dev::SvAbstractUdpThread::write(const QByteArray& data)
+quint64 SvAbstractUdpThread::write(const QByteArray& data)
 {
   if(!p_is_active)
     return 0;
@@ -160,7 +140,7 @@ quint64 dev::SvAbstractUdpThread::write(const QByteArray& data)
 
 }
 
-void dev::SvAbstractUdpThread::run()
+void SvAbstractUdpThread::run()
 {
   p_is_active = true;
 
@@ -193,13 +173,13 @@ void dev::SvAbstractUdpThread::run()
 }
 
 /**         SvAbstractSerialThread         **/
-dev::SvAbstractSerialThread::SvAbstractSerialThread(SvAbstractDevice *device, sv::SvAbstractLogger *logger):
-  dev::SvAbstractKsutsThread(device, logger)
+SvAbstractSerialThread::SvAbstractSerialThread(ad::SvAbstractDevice *device, sv::SvAbstractLogger *logger):
+  SvAbstractGenericThread(device, logger)
 {
 
 }
 
-void dev::SvAbstractSerialThread::setIfcParams(const QString& params) throw(SvException&)
+void SvAbstractSerialThread::setIfcParams(const QString& params) throw(SvException&)
 {
   try {
 
@@ -212,7 +192,7 @@ void dev::SvAbstractSerialThread::setIfcParams(const QString& params) throw(SvEx
   }
 }
 
-void dev::SvAbstractSerialThread::open() throw(SvException&)
+void SvAbstractSerialThread::open() throw(SvException&)
 {
   p_port.setPortName   (p_ifc_params.portname   );
   p_port.setBaudRate   (p_ifc_params.baudrate   );
@@ -235,7 +215,7 @@ void dev::SvAbstractSerialThread::open() throw(SvException&)
 
 }
 
-quint64 dev::SvAbstractSerialThread::write(const QByteArray& data)
+quint64 SvAbstractSerialThread::write(const QByteArray& data)
 {
   if(p_logger) // && p_device->info()->debug_mode)
     *p_logger << static_cast<dev::SvAbstractKsutsDevice*>(p_device)->make_dbus_sender()
@@ -249,7 +229,7 @@ quint64 dev::SvAbstractSerialThread::write(const QByteArray& data)
 
 }
 
-void dev::SvAbstractSerialThread::run()
+void SvAbstractSerialThread::run()
 {
   p_is_active = true;
 

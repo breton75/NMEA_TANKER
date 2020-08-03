@@ -37,7 +37,7 @@
 
 SvPGDB* PG = nullptr;
 
-QMap<int, dev::SvAbstractDevice*> DEVICES;
+QMap<int, ad::SvAbstractDevice*> DEVICES;
 QMap<int, SvStorage*> STORAGES;
 QMap<int, SvSignal*> SIGNALS;
 
@@ -79,7 +79,7 @@ bool readStorages();
 //bool cobToRepository(QString storage_field_name);
 bool readSignals();
 
-dev::SvAbstractDevice* create_device(const QJsonObject *o) throw(SvException);
+ad::SvAbstractDevice* create_device(const QJsonObject *o) throw(SvException);
 SvStorage* create_storage(QSqlQuery *q);
 //SvCOB* create_cob(const QSqlQuery* q);
 SvSignal* create_signal(const QSqlQuery* q);
@@ -537,7 +537,7 @@ bool readDevices(const AppConfig& cfg)
        
       QJsonObject o = v.toObject();
 
-      dev::SvAbstractDevice* newdev = create_device(&o);
+      ad::SvAbstractDevice* newdev = create_device(&o);
 
 //      if(newdev) {
 
@@ -754,9 +754,9 @@ bool readSignals()
   
 }
 
-dev::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
+ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
 {  
-  dev::SvAbstractDevice* newdev = nullptr;
+  ad::SvAbstractDevice* newdev = nullptr;
   
   try {
     // проверяем наличие основных полей
@@ -765,7 +765,7 @@ dev::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
       if(o->value(v).isUndefined())
         throw exception.assign(QString("В разделе 'devices' отсутствует или не задан параметр '%1'").arg(v));
 
-    dev::DeviceInfo info;
+    ad::DeviceInfo info;
 
     info.id = o->value(P_ID).toInt(-1);
     if(info.id == -1) throw exception.assign(QString(L_WRONG_PARAM).arg(P_ID).arg(o->value(P_ID).toVariant().toString()));
@@ -917,7 +917,7 @@ bool openDevices()
     
     for(int key: DEVICES.keys()) {
       
-      dev::SvAbstractDevice* device = DEVICES.value(key);
+      ad::SvAbstractDevice* device = DEVICES.value(key);
 
       if(!device->open()) exception.raise(QString("%1 [Индекс %2]: %3")
                                           .arg(device->info()->name)
@@ -996,7 +996,7 @@ void closeDevices()
 
     foreach (int key, DEVICES.keys())
     {
-      dev::SvAbstractDevice* device = DEVICES.value(key);
+      ad::SvAbstractDevice* device = DEVICES.value(key);
 
       dbus << llinf << me << mtinf << QString("  %1 (%2):").arg(device->info()->name).arg(device->info()->ifc_name) << sv::log::endl;
 

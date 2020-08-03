@@ -100,6 +100,7 @@ struct UdpParams {
   {
     QJsonObject j;
 
+    j.insert()
     j.insert(P_UDP_HOST, QJsonValue(host).toString());
     j.insert(P_UDP_RECV_PORT, QJsonValue(static_cast<int>(recv_port)).toInt());
     j.insert(P_UDP_SEND_PORT, QJsonValue(static_cast<int>(send_port)).toInt());

@@ -62,7 +62,7 @@ public:
   
 //  virtual dev::HardwareType type() const { return p_hardware_type; }
   
-  virtual SvException create_new_thread() = 0;
+  virtual void create_new_thread() throw(SvException) = 0;
   virtual ad::SvAbstractDeviceThread* thread() const { return p_thread; }
 
   virtual void setLogger(sv::SvAbstractLogger* logger) { p_logger = logger; }
@@ -73,9 +73,9 @@ public:
   virtual const ad::DeviceInfo* info() const { return &p_info; }
 //  virtual const ad::DeviceParams* params() const { return &p_params; }
 
-  virtual bool open() throw(SvException) = 0;
+  virtual bool open() = 0;
 
-  virtual void close() = 0;  //{ emit stopThread(); }
+  virtual void close() = 0;
   virtual void stop()   { }
 
   void setLastError(const QString& lastError) { p_last_error = lastError; }

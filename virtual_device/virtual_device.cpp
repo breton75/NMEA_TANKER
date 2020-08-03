@@ -7,57 +7,61 @@ VirtualDevice::VirtualDevice(sv::SvAbstractLogger *logger):
 
 }
 
-VirtualDevice::~VirtualDevice()
-{
-  emit stopThread();
-  deleteLater();
-}
-
 bool VirtualDevice::setup(const ad::DeviceInfo& info)
 {
   p_info = info;
-  return true;
-}
 
-void VirtualDevice::deleteThread()
-{
-  if(p_thread) delete p_thread;
-}
-
-bool VirtualDevice::open() throw(SvException)
-{
   try {
 
-    SvException e = create_new_thread();
+//    p_params = dev::DeviceParams::fromJson(p_info.device_params);
 
-    if(e.type != SvException::NoError)
-      throw e;
-
-    p_thread->setIfcParams(p_info.ifc_params);
-
-    connect(p_thread, &ad::SvAbstractDeviceThread::finished, this, &VirtualDevice::deleteThread);
-    connect(this, &VirtualDevice::stopThread, p_thread, &ad::SvAbstractDeviceThread::stop);
-//    connect(p_thread, &dev::SvAbstractDeviceThread::finished, p_thread, &dev::SvAbstractDeviceThread::deleteLater);
-
-    p_thread->open();
-    p_thread->start();
+//    if(!p_params.isValid)
+//      p_exception->raise(QString("Неверные параметры устройства: %1").arg(p_info.device_params));
 
     return true;
 
-  } catch(SvException& e) {
+  }
 
-    p_last_error = e.error;
+  catch(SvException& e) {
 
-    deleteThread();
-
+    setLastError(e.error);
     return false;
-
   }
 }
 
-void VirtualDevice::close()
+void VirtualDevice::create_new_thread() throw(SvException)
 {
-  emit stopThread();
+  try {
+
+    switch (ifcesMap.value(p_info.ifc_name)) {
+
+      case AvailableIfces::RS485:
+      case AvailableIfces::RS:
+
+//        p_thread = new SvSerialThread(this, p_logger);
+//        p_thread->setIfcParams(p_info.ifc_params);
+
+        break;
+
+      case AvailableIfces::UDP:
+
+//        p_thread = new SvUDPThread(this, p_logger);
+//        p_thread->setIfcParams(p_info.ifc_params);
+
+        break;
+
+    default:
+      p_exception->raise(QString("Неизвестный тип интерфейса: %1").arg(info()->ifc_name));
+      break;
+
+    }
+  }
+
+  catch(SvException& e) {
+
+    throw e;
+
+  }
 }
 
 

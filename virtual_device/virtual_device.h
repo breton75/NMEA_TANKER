@@ -3,14 +3,14 @@
 
 #include "virtual_device_global.h"
 
-#include "../global/sv_abstract_device.h"
+#include "../global/sv_abstract_generic_device.h"
 #include "../global/sv_signal.h"
 
 #include "../../svlib/sv_abstract_logger.h"
 #include "../../svlib/sv_exception.h"
 
-#include "my_serial_params.h"
-#include "my_udp_params.h"
+#include "serial_params.h"
+#include "udp_params.h"
 
 enum AvailableIfces {
   RS,
@@ -23,7 +23,7 @@ const QMap<QString, AvailableIfces> ifcesMap = {{"RS",    AvailableIfces::RS},
                                                 {"UDP",   AvailableIfces::UDP}};
 
 
-class VirtualDevice: public ad::SvAbstractDevice
+class VirtualDevice: public SvAbstractGenericDevice
 {
   Q_OBJECT
 
@@ -31,11 +31,11 @@ public:
   VirtualDevice(sv::SvAbstractLogger* logger = nullptr);
   ~VirtualDevice();
 
+  void create_new_thread() throw(SvException);
+
   bool setup(const ad::DeviceInfo& info);
 
-  SvException create_new_thread();
-
-  bool open() throw(SvException);
+  bool open();
   void close();
 
 private slots:
@@ -46,11 +46,12 @@ signals:
 
 };
 
-class VirtualDeviceUDPThread: public ad::SvAbstractDeviceThread
+class VirtualDeviceUDPThread: public SvAbstractUdpThread
 {
 
 public:
   VirtualDeviceUDPThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger = nullptr);
+
 
   void setIfcParams(const QString& params) throw(SvException&);
   void open() throw(SvException&);
