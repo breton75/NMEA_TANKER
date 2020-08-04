@@ -35,8 +35,7 @@ SOURCES += main.cpp \
     sv_storagewatcher.cpp \
     ../global/sv_dbus.cpp \
     ../../svlib/sv_abstract_logger.cpp \
-    ../../svlib/sv_fnt.cpp \
-    ../global/sv_abstract_generic_device.cpp
+    ../../svlib/sv_fnt.cpp
 
 HEADERS += \
     ../../svlib/sv_exception.h \
@@ -50,12 +49,8 @@ HEADERS += \
     sv_storagewatcher.h \
     ../global/sv_dbus.h \
     ../global/sv_abstract_device.h \
-    ../../svlib/sv_crc.h \
     ../global/device_params.h \
-    ../../svlib/sv_abstract_logger.h \
-    ../../svlib/sv_serial_params.h \
-    ../../svlib/sv_udp_params.h \
-    ../global/sv_abstract_generic_device.h
+    ../../svlib/sv_abstract_logger.h
 
 DISTFILES += \
     ../../../nmea/config.json

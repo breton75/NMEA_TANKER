@@ -539,7 +539,7 @@ bool readDevices(const AppConfig& cfg)
 
       ad::SvAbstractDevice* newdev = create_device(&o);
 
-//      if(newdev) {
+      if(newdev) {
 
 //        DEVICES.insert(newdev->info()->index, newdev);
 
@@ -550,13 +550,13 @@ bool readDevices(const AppConfig& cfg)
 //          newdev->setLogger(LOGGERS.value(newdev->info()->index));
 //        }
 
-//        dbus << lldbg << mtdbg << me
-//             << QString("  %1 [Индекс %2]\n Параметры: %3\n  Интерфейс: %4 %5").
-//                arg(newdev->info()->name).
-//                arg(newdev->info()->index).
-//                arg(newdev->info()->device_params).
-//                arg(newdev->info()->ifc_name).arg(newdev->info()->ifc_params)
-//             << sv::log::endl;
+        dbus << lldbg << mtdbg << me
+             << QString("  %1 [Индекс %2]\n Параметры: %3\n  Интерфейс: %4 %5").
+                arg(newdev->info()->name).
+                arg(newdev->info()->id).
+                arg(newdev->info()->device_params).
+                arg(newdev->info()->ifc_name).arg(newdev->info()->ifc_params)
+             << sv::log::endl;
 
         counter++;
 
@@ -574,7 +574,7 @@ bool readDevices(const AppConfig& cfg)
 ////                        .arg(q->value("device_name").toString())
 ////                        .arg(q->value("device_index").toInt()));
 //      }
-//    }
+    }
 
 //    q.finish();
 
@@ -760,7 +760,7 @@ ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
   
   try {
     // проверяем наличие основных полей
-    QStringList l = QStringList() << P_ID << P_NAME << P_DRIVER << P_PARAMS << P_IFC << P_DESCRIPTION;
+    QStringList l = QStringList() << P_ID << P_NAME << P_DRIVER << P_DEV_PARAMS << P_IFC << P_IFC_PARAMS << P_DESCRIPTION;
     for(QString v: l)
       if(o->value(v).isUndefined())
         throw exception.assign(QString("В разделе 'devices' отсутствует или не задан параметр '%1'").arg(v));
@@ -768,25 +768,16 @@ ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
     ad::DeviceInfo info;
 
     info.id = o->value(P_ID).toInt(-1);
-    if(info.id == -1) throw exception.assign(QString(L_WRONG_PARAM).arg(P_ID).arg(o->value(P_ID).toVariant().toString()));
+    if(info.id == -1)
+      throw exception.assign(QString(L_WRONG_PARAM).arg(P_ID).arg(o->value(P_ID).toVariant().toString()));
 
     info.name = o->value(P_NAME).toString();
 
 //    info.hardware_type = dev::HARDWARE_CODES.value(o->value("device_hardware_code").toString());
   //  info.ifc_type = dev::IFC_CODES.value(o->value("device_ifc_name").toString());
-//    info.ifc_name = o->value("device_ifc_name").toString();
-
-    // параметры устройства и иитерфейса должны быть заданы как json объект
-    if(!o->value(P_IFC).isObject())
-      throw exception.assign("Неверно заданы параметры интерфейса 'ifc'. Должны быть заданы как json объект.");
-
-    info.ifc_params = QString(QJsonDocument(o->value(P_IFC).toObject()).toJson(QJsonDocument::Compact));
-
-    if(!o->value(P_PARAMS).isObject())
-      throw exception.assign("Неверно заданы параметры устройства 'params'. Должны быть заданы как json объект.");
-
-    info.device_params = QString(QJsonDocument(o->value(P_PARAMS).toObject()).toJson(QJsonDocument::Compact));
-
+    info.ifc_name = o->value(P_IFC).toString();
+    info.ifc_params = o->value(P_IFC_PARAMS).toString(); // QString(QJsonDocument(o->value(P_IFC).toObject()).toJson(QJsonDocument::Compact));
+    info.device_params = o->value(P_DEV_PARAMS).toString(); // QString(QJsonDocument(o->value(P_PARAMS).toObject()).toJson(QJsonDocument::Compact));
     info.driver_lib_name = o->value(P_DRIVER).toString();
     info.is_involved = o->value(P_ACTIVE).toBool(true);
     info.debug_mode = o->value(P_DEBUG).toBool(false);
@@ -824,11 +815,14 @@ qDebug() << 3;
         
 //    }
 
-//    if(!newdev)
-//      exception.raise("Неизвестная ошибка при создании устройства");
+    if(!newdev)
+      exception.raise("Неизвестная ошибка при создании устройства");
     
-//    if(!newdev->setup(info)) exception.raise(newdev->lastError());
-////    if(!newdev->setParams(params)) exception.raise(newdev->lastError());
+    if(!newdev->setup(info))
+      exception.raise(newdev->lastError());
+//    if(!newdev->setParams(params)) exception.raise(newdev->lastError());
+
+    return newdev;
     
   }
   
@@ -843,9 +837,6 @@ qDebug() << 3;
     throw e;
     
   }
-
-  return newdev;
-
 }
 
 SvStorage* create_storage(QSqlQuery* q)

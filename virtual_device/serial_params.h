@@ -11,9 +11,9 @@
 #define VIRTUAL_DEVICE_SERIAL_PARAMS
 
 #include <QtGlobal>
-#include <QtCore/QCommandLineParser>
 #include <QtSerialPort/QSerialPort>
 #include <QtSerialPort/QSerialPortInfo>
+#include <QMap>
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -28,6 +28,8 @@
 #define P_SERIAL_STOPBITS "stopbits"
 #define P_SERIAL_FLOWCTRL "flowcontrol"
 
+#define IFC_WRONG_PARAM_VALUE   "Неверное значение параметра %1: %2"
+#define IFC_IMPERMISSIBLE_VALUE "Недопустимое значение параметра %1: %2.\nДопустимы: %3"
 
 const QList<int> Baudrates = {75, 115, 134, 150, 300, 600, 1200, 1800, 2400, 4800, 7200, 9600, 14400, 19200, 38400, 57600, 115200, 128000};
 
@@ -63,44 +65,113 @@ struct SerialParams {
 
   bool isValid = true;
 
-  static SerialParams fromJsonString(const QString& json_string)
+  static SerialParams fromJsonString(const QString& json_string) throw (SvException)
   {
-    QJsonDocument jd = QJsonDocument::fromJson(json_string.toUtf8());
-    return fromJsonObject(jd.object());
+    QJsonParseError err;
+    QJsonDocument jd = QJsonDocument::fromJson(json_string.toUtf8(), &err);
+
+    if(err.error != QJsonParseError::NoError)
+      throw SvException(err.errorString());
+
+    try {
+      return fromJsonObject(jd.object());
+    }
+    catch(SvException e) {
+      throw e;
+    }
   }
 
-  static SerialParams fromJsonObject(const QJsonObject &object)
+  static SerialParams fromJsonObject(const QJsonObject &object) throw (SvException)
   {
     SerialParams p;
+    int val;
 
-    if(object.contains(P_SERIAL_PORTNAME))
+    if(object.contains(P_SERIAL_PORTNAME)) {
+
       p.portname = object.value(P_SERIAL_PORTNAME).toString("ttyS0");
 
-    if(object.contains(P_SERIAL_BAUDRATE))
-      p.baudrate = object.value(P_SERIAL_BAUDRATE).toInt(19200);
+      if(p.portname.isEmpty())
+        throw SvException(QString(IFC_WRONG_PARAM_VALUE).arg(P_SERIAL_PORTNAME).arg(object.value(P_SERIAL_PORTNAME).toVariant().toString()));
+    }
 
-    if(object.contains(P_SERIAL_DATABITS))
-      p.databits = QSerialPort::DataBits(object.value(P_SERIAL_DATABITS).toInt(QSerialPort::Data8));
+    /* baudrate */
+    if(object.contains(P_SERIAL_BAUDRATE)) {
 
-    if(object.contains(P_SERIAL_PARITY))
-      p.parity = QSerialPort::Parity(object.value(P_SERIAL_PARITY).toInt(QSerialPort::NoParity));
+      val = object.value(P_SERIAL_BAUDRATE).toInt(-1);
+      if(val <= 0)
+        throw SvException(QString(IFC_WRONG_PARAM_VALUE).arg(P_SERIAL_BAUDRATE).arg(object.value(P_SERIAL_BAUDRATE).toVariant().toString()));
 
-    if(object.contains(P_SERIAL_STOPBITS))
-      p.stopbits = QSerialPort::StopBits(object.value(P_SERIAL_STOPBITS).toInt(QSerialPort::OneStop));
+      p.baudrate = val;
 
-    if(object.contains(P_SERIAL_FLOWCTRL))
-      p.flowcontrol = QSerialPort::FlowControl(object.value(P_SERIAL_FLOWCTRL).toInt(QSerialPort::NoFlowControl));
+    }
+
+    /* databits */
+    if(object.contains(P_SERIAL_DATABITS)) {
+
+      val = object.value(P_SERIAL_DATABITS).toInt(-1);
+
+      if(!DataBits.keys().contains(static_cast<QSerialPort::DataBits>(val)))
+        throw SvException(QString(IFC_IMPERMISSIBLE_VALUE)
+                          .arg(P_SERIAL_DATABITS)
+                          .arg(object.value(P_SERIAL_DATABITS).toVariant().toString())
+                          .arg("5, 6, 7, 8"));
+
+      p.databits = QSerialPort::DataBits(static_cast<QSerialPort::DataBits>(val));
+    }
+
+    /* parity */
+    if(object.contains(P_SERIAL_PARITY)) {
+
+      val = object.value(P_SERIAL_PARITY).toInt(-1);
+
+      if(!Parities.keys().contains(static_cast<QSerialPort::Parity>(val)))
+        throw SvException(QString(IFC_IMPERMISSIBLE_VALUE)
+                          .arg(P_SERIAL_PARITY)
+                          .arg(object.value(P_SERIAL_PARITY).toVariant().toString())
+                          .arg("0 - NoParity, 2 - Even, 3 - Odd, 4 - Space, 5 - Mark"));
+
+      p.parity = QSerialPort::Parity(val);
+
+    }
+
+    if(object.contains(P_SERIAL_STOPBITS)) {
+
+      val = object.value(P_SERIAL_STOPBITS).toInt(-1);
+
+      if(!StopBits.keys().contains(static_cast<QSerialPort::StopBits>(val)))
+        throw SvException(QString(IFC_IMPERMISSIBLE_VALUE)
+                          .arg(P_SERIAL_STOPBITS)
+                          .arg(object.value(P_SERIAL_STOPBITS).toVariant().toString())
+                          .arg("1 - One, 2 - Two, 3 - OneAndHalf"));
+
+      p.stopbits = QSerialPort::StopBits(val);
+
+    }
+
+    if(object.contains(P_SERIAL_FLOWCTRL)) {
+
+      val = object.value(P_SERIAL_FLOWCTRL).toInt(-1);
+
+      if(!FlowControls.keys().contains(static_cast<QSerialPort::FlowControl>(val)))
+        throw SvException(QString(IFC_IMPERMISSIBLE_VALUE)
+                          .arg(P_SERIAL_FLOWCTRL)
+                          .arg(object.value(P_SERIAL_FLOWCTRL).toVariant().toString())
+                          .arg("0 - NoFlowControl, 1 - HardwareControl, 2 - SoftwareControl"));
+
+      p.flowcontrol = QSerialPort::FlowControl(val);
+
+    }
 
     return p;
 
   }
 
-  QString toJsonString() const
+  QString toJsonString(QJsonDocument::JsonFormat format = QJsonDocument::Indented) const
   {
     QJsonDocument jd;
     jd.setObject(toJsonObject());
 
-    return QString(jd.toJson(QJsonDocument::Indented));
+    return QString(jd.toJson(format));
   }
 
   QJsonObject toJsonObject() const

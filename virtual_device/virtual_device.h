@@ -3,14 +3,34 @@
 
 #include "virtual_device_global.h"
 
-#include "../global/sv_abstract_generic_device.h"
+#include "../global/sv_abstract_device.h"
 #include "../global/sv_signal.h"
 
 #include "../../svlib/sv_abstract_logger.h"
 #include "../../svlib/sv_exception.h"
+#include "../../svlib/sv_crc.h"
 
 #include "serial_params.h"
 #include "udp_params.h"
+#include "device_params.h"
+
+namespace vir {
+
+  #pragma pack(push,1)
+  struct Header
+  {
+    quint8  client_addr;
+    quint8  func_code;
+    quint8  ADDRESS;
+    quint8  OFFSET;
+    quint16 register_count;
+    quint8  byte_count;
+  };
+  #pragma pack(pop)
+
+//  bool process_data(ad::SvAbstractDevice* device, ad::BUFF* buff, ad::DATA* data, Header* header);
+
+}
 
 enum AvailableIfces {
   RS,
@@ -22,8 +42,7 @@ const QMap<QString, AvailableIfces> ifcesMap = {{"RS",    AvailableIfces::RS},
                                                 {"RS485", AvailableIfces::RS485},
                                                 {"UDP",   AvailableIfces::UDP}};
 
-
-class VirtualDevice: public SvAbstractGenericDevice
+class VirtualDevice: public ad::SvAbstractDevice
 {
   Q_OBJECT
 
@@ -31,12 +50,17 @@ public:
   VirtualDevice(sv::SvAbstractLogger* logger = nullptr);
   ~VirtualDevice();
 
-  void create_new_thread() throw(SvException);
-
   bool setup(const ad::DeviceInfo& info);
 
   bool open();
   void close();
+
+  void create_new_thread() throw(SvException);
+
+  DeviceParams* params() { return &_params; }
+
+private:
+  DeviceParams _params;
 
 private slots:
   void deleteThread();
@@ -46,41 +70,81 @@ signals:
 
 };
 
-class VirtualDeviceUDPThread: public SvAbstractUdpThread
+class VirtualDeviceGenericThread: public ad::SvAbstractDeviceThread
 {
+  Q_OBJECT
 
 public:
-  VirtualDeviceUDPThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger = nullptr);
+  VirtualDeviceGenericThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger = nullptr):
+    ad::SvAbstractDeviceThread(device, logger)
+  {   }
 
+protected:
+  DeviceParams* dev_params;
 
-  void setIfcParams(const QString& params) throw(SvException&);
-  void open() throw(SvException&);
+  vir::Header header;
+  size_t hsz = sizeof(vir::Header);
 
-private:
-  UdpParams ifc_params;
+  quint8  confirm[8];
 
   void process_data();
 
+private:
+  quint16 parse_data();
+  QByteArray confirmation();
+
+  void func_virtual();
+
+};
+
+class VirtualDeviceUDPThread: public VirtualDeviceGenericThread
+{
+  Q_OBJECT
+
+public:
+  VirtualDeviceUDPThread(ad::SvAbstractDevice *device, sv::SvAbstractLogger* logger = nullptr);
+  ~VirtualDeviceUDPThread();
+
+  void setIfcParams(const QString& params) throw(SvException&);
+
+  void open() throw(SvException);
+
+  quint64 write(const QByteArray& data);
+
+private:
+  QUdpSocket socket;
+
+  UdpParams     ifc_params;
+
+
+  void run() Q_DECL_OVERRIDE;
 
 public slots:
   void stop();
 
 };
 
-class VirtualDeviceSerialThread: public ad::SvAbstractDeviceThread
+class VirtualDeviceSerialThread: public VirtualDeviceGenericThread
 {
+  Q_OBJECT
 
 public:
   VirtualDeviceSerialThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger = nullptr);
+  ~VirtualDeviceSerialThread();
 
   void setIfcParams(const QString& params) throw(SvException&);
-  void open() throw(SvException&);
+
+  void open() throw(SvException);
+
+  quint64 write(const QByteArray& data);
 
 private:
-  SerialParams ifc_params;
+  QSerialPort port;
 
-  void process_data();
+  SerialParams  ifc_params;
+  DeviceParams* dev_params;
 
+  void run() Q_DECL_OVERRIDE;
 
 public slots:
   void stop();
@@ -95,7 +159,7 @@ extern "C" {
 //        OK = 0
 //    };
 
-//  class VirtualDevice;
+//   class VIRTUAL_DEVICESHARED_EXPORT VirtualDevice;
 //  class VirtualDeviceThread;
 //    struct VIRTUAL_DEVICESHARED_EXPORT can_err{
 //        int code = canlib::OK;
@@ -125,11 +189,11 @@ extern "C" {
 
 //    CANLIBSHARED_EXPORT can_err *get_can_list();
 
-    VIRTUAL_DEVICESHARED_EXPORT VirtualDevice* create();
+    VIRTUAL_DEVICESHARED_EXPORT void* create();
 
-    VIRTUAL_DEVICESHARED_EXPORT QString defaultDeviceParams();
-    VIRTUAL_DEVICESHARED_EXPORT QString defaultIfcParams(const QString& ifc);
-    VIRTUAL_DEVICESHARED_EXPORT QList<QString> availableInterfaces();
+//    VIRTUAL_DEVICESHARED_EXPORT QString defaultDeviceParams();
+//    VIRTUAL_DEVICESHARED_EXPORT QString defaultIfcParams(const QString& ifc);
+//    VIRTUAL_DEVICESHARED_EXPORT QList<QString> availableInterfaces();
 
 
 //    VIRTUAL_DEVICESHARED_EXPORT SvException setParams(dev::SvAbstractDevice* device, const QString params);

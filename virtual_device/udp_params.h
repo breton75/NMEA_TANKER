@@ -38,17 +38,17 @@ struct UdpParams {
     QJsonParseError err;
     QJsonDocument jd = QJsonDocument::fromJson(json_string.toUtf8(), &err);
 
-    SvException excpt;
+//    SvException excpt;
 
     if(err.error != QJsonParseError::NoError)
-      throw excpt.assign(err.errorString());
+      throw SvException(err.errorString());
+
     try {
       return fromJsonObject(jd.object());
     }
     catch(SvException e) {
       throw e;
     }
-
   }
 
   static UdpParams fromJsonObject(const QJsonObject &object) throw (SvException)
@@ -100,7 +100,6 @@ struct UdpParams {
   {
     QJsonObject j;
 
-    j.insert()
     j.insert(P_UDP_HOST, QJsonValue(host).toString());
     j.insert(P_UDP_RECV_PORT, QJsonValue(static_cast<int>(recv_port)).toInt());
     j.insert(P_UDP_SEND_PORT, QJsonValue(static_cast<int>(send_port)).toInt());

@@ -8,12 +8,14 @@
 #include <QMutex>
 #include <QTimer>
 
+#include "../virtual_device/virtual_device_global.h"
 #include "../../svlib/sv_exception.h"
 #include "../../svlib/sv_abstract_logger.h"
 
 #include "sv_signal.h"
 //#include "device_params.h"
 
+#define MAX_PACKET_SIZE 0xFFFF
 
 namespace ad {
 
@@ -33,6 +35,27 @@ namespace ad {
     bool debug_mode = false;
     bool debug2_mode = false;
     quint64 timeout = 0;
+  };
+
+
+  struct BUFF
+  {
+    BUFF() {}
+
+    quint8  buf[MAX_PACKET_SIZE];
+    quint64 offset = 0;
+
+  };
+
+  struct DATA
+  {
+    DATA() {}
+
+    qint8  data[MAX_PACKET_SIZE];
+    quint8  data_type;
+    quint8  data_length;
+    quint16 crc;
+
   };
 
   typedef QMap<QString, SvSignal*> SignalMap;
@@ -121,12 +144,12 @@ protected:
   ad::SvAbstractDeviceThread* p_thread = nullptr;
 
   ad::DeviceInfo    p_info;
-//  dev::DeviceParams  p_params;
 
   sv::SvAbstractLogger* p_logger;
 
   ad::SignalMap p_signals;
 
+  SvException p_exception;
   QString p_last_error;
 
   bool p_isOpened = false;
@@ -137,13 +160,14 @@ protected:
   
 };
 
+
 class ad::SvAbstractDeviceThread: public QThread
 {
   Q_OBJECT
   
 public:
   SvAbstractDeviceThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger = nullptr):
-    p_logger(logger),/**/
+    p_logger(logger),
     p_device(device)
   {  }
 
@@ -151,8 +175,8 @@ public:
 
   virtual void setIfcParams(const QString& params) throw(SvException&) = 0;
 
-  virtual void open() throw(SvException&) = 0;
-//  virtual void stop() = 0;
+  virtual void open() throw(SvException) = 0;
+  virtual quint64 write(const QByteArray& data) = 0;
 
   virtual void setLogger(sv::SvAbstractLogger* logger)
   {
@@ -163,15 +187,29 @@ protected:
   sv::SvAbstractLogger  *p_logger;
   ad::SvAbstractDevice *p_device;
 
+  bool p_is_active;
+
+  ad::BUFF p_buff;
+  ad::DATA p_data;
+
+  QTimer  p_reset_timer;
+
+  SvException p_exception;
+
   virtual void process_data() = 0;
 
 public slots:
+
+public slots:
+  virtual void reset_buffer()
+  {
+    p_buff.offset = 0;
+  }
+
   virtual void stop() = 0;
+//  virtual void stop()
 //  {
-//    *p_logger << "p_is_active" << (p_is_active ? "true" : "false") << sv::log::endl;
 //    p_is_active = false;
-//    while(this->isRunning()) qApp->processEvents();
-//    *p_logger << "p_is_active" << (p_is_active ? "true" : "false") << sv::log::endl;
 //  }
 
 };

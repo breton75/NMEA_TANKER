@@ -10,10 +10,11 @@
 #define P_TIMEOUT     "timeout"
 #define P_ACTIVE      "active"
 
-/* имена полей для устройств */
+/* имена полей для всех устройств */
 #define P_DRIVER      "driver"
-#define P_PARAMS      "params"
+#define P_DEV_PARAMS  "dev_params"
 #define P_IFC         "ifc"
+#define P_IFC_PARAMS  "ifc_params"
 #define P_DEBUG       "debug"
 
 /* имена полей для сигналов */
