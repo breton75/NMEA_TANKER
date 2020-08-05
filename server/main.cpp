@@ -371,8 +371,8 @@ int main(int argc, char *argv[])
 
 //    close_db();
 
-//    /** подключаемся к устройствам и к репозиториям и начинаем работу **/
-//    if(!openDevices()) exception.raise(-50);
+    /** подключаемся к устройствам и к репозиториям и начинаем работу **/
+    if(!openDevices()) exception.raise(-50);
 
 //    /** подключаемся к серверам баз данных - хранилищам **/
 //    initStorages();
@@ -541,17 +541,17 @@ bool readDevices(const AppConfig& cfg)
 
       if(newdev) {
 
-//        DEVICES.insert(newdev->info()->index, newdev);
+        DEVICES.insert(newdev->info()->id, newdev);
 
-//        if(cfg.log_options.logging)
-//        {
-//          LOGGERS.insert(newdev->info()->index, new sv::SvDBus(cfg.log_options));
+        if(cfg.log_options.logging)
+        {
+          LOGGERS.insert(newdev->info()->id, new sv::SvDBus(cfg.log_options));
 
-//          newdev->setLogger(LOGGERS.value(newdev->info()->index));
-//        }
+          newdev->setLogger(LOGGERS.value(newdev->info()->id));
+        }
 
         dbus << lldbg << mtdbg << me
-             << QString("  %1 [Индекс %2]\n Параметры: %3\n  Интерфейс: %4 %5").
+             << QString("  %1 [Индекс %2]\n  Параметры: %3\n  Интерфейс: %4 %5").
                 arg(newdev->info()->name).
                 arg(newdev->info()->id).
                 arg(newdev->info()->device_params).
@@ -562,24 +562,16 @@ bool readDevices(const AppConfig& cfg)
 
       }
 
-//      else {
+      else {
 
-//        dbus << llerr << me << mterr
-//             << QString("Не удалось добавить устройство '%1' [Индекс %2]\n")
-//                                        .arg(q.value(1).toString())
-//                                        .arg(q.value(0).toInt())
-//             << sv::log::endl;
+        exception.raise(QString("Не удалось добавить устройство %1 ")
+                        .arg(v.toVariant().toString()));
 
-////        exception.raise(QString("Не удалось добавить устройство %1 (id %2)")
-////                        .arg(q->value("device_name").toString())
-////                        .arg(q->value("device_index").toInt()));
-//      }
+      }
     }
 
-//    q.finish();
-
-//    if(counter == 0)
-//      exception.raise("Устройства в конфигурации не найдены");
+    if(counter == 0)
+      exception.raise("Устройства в конфигурации не найдены");
 
     dbus << llinf << me << mtscc
          << QString("OK [прочитано %1]\n").arg(counter) << sv::log::endl;
@@ -772,55 +764,44 @@ ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
       throw exception.assign(QString(L_WRONG_PARAM).arg(P_ID).arg(o->value(P_ID).toVariant().toString()));
 
     info.name = o->value(P_NAME).toString();
-
 //    info.hardware_type = dev::HARDWARE_CODES.value(o->value("device_hardware_code").toString());
   //  info.ifc_type = dev::IFC_CODES.value(o->value("device_ifc_name").toString());
     info.ifc_name = o->value(P_IFC).toString();
-    info.ifc_params = o->value(P_IFC_PARAMS).toString(); // QString(QJsonDocument(o->value(P_IFC).toObject()).toJson(QJsonDocument::Compact));
-    info.device_params = o->value(P_DEV_PARAMS).toString(); // QString(QJsonDocument(o->value(P_PARAMS).toObject()).toJson(QJsonDocument::Compact));
+    info.ifc_params = QString(QJsonDocument(o->value(P_IFC_PARAMS).toObject()).toJson(QJsonDocument::Compact));
+    info.device_params = QString(QJsonDocument(o->value(P_DEV_PARAMS).toObject()).toJson(QJsonDocument::Compact));
     info.driver_lib_name = o->value(P_DRIVER).toString();
     info.is_involved = o->value(P_ACTIVE).toBool(true);
     info.debug_mode = o->value(P_DEBUG).toBool(false);
     info.timeout = o->value(P_TIMEOUT).toInt(0);
-  //  info.re= q->value("device_timeout").toUInt();
-  //  QString params = q->value("device_params").toString();
-  qDebug() << info.driver_lib_name;
-    QLibrary devlib(info.driver_lib_name);
-qDebug() << 2;
+
+    dbus << lldbg << mtdbg << me
+         << QString("  %1: параметры прочитаны").arg(info.name) << sv::log::endl;
+
+    QLibrary devlib(info.driver_lib_name); // "/home/user/nmea/lib/libtestlib.so.1.0.0"); //
+
     if(!devlib.load())
       throw exception.assign(devlib.errorString());
-qDebug() << 3;
 
-//    switch (info.hardware_type) {
-      
-//      case dev::OHT:
-////        newdev = new SvOHT();
-//        break;
-        
-//      case dev::OPA:
-////        newdev = new SvOPA();
-//        break;
-        
-//      case dev::SKM:
-////        newdev = new SvSKM();
-//        break;
+    dbus << lldbg << mtdbg << me
+         << QString("  %1: драйвер загружен").arg(info.name) << sv::log::endl;
 
-//    case dev::KTV:
-////        newdev = new SvKTV();
-//        break;
+    typedef ad::SvAbstractDevice *(*create_device_func)(void);
+    create_device_func create = (create_device_func)devlib.resolve("create");
 
-//      default:
-//        exception.raise(QString("Неизвестное устройство: %1 [Индекс %2]").arg(info.name).arg(info.index));
-//        break;
-        
-//    }
+    if (create)
+      newdev = create();
+
+    else
+      throw exception.assign(devlib.errorString());
 
     if(!newdev)
-      exception.raise("Неизвестная ошибка при создании устройства");
+      exception.raise("Неизвестная ошибка при создании объекта устройства");
     
-    if(!newdev->setup(info))
+    if(!newdev->configure(info))
       exception.raise(newdev->lastError());
-//    if(!newdev->setParams(params)) exception.raise(newdev->lastError());
+
+    dbus << lldbg << mtdbg << me
+         << QString("  %1: объект создан").arg(info.name) << sv::log::endl;
 
     return newdev;
     

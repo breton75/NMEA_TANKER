@@ -28,7 +28,8 @@ HEADERS += virtual_device.h\
     ../../svlib/sv_abstract_logger.h \
     udp_params.h \
     serial_params.h \
-    device_params.h
+    device_params.h \
+    virtual_params.h
 
 unix {
     target.path = /usr/lib

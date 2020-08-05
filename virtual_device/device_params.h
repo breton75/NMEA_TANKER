@@ -4,6 +4,8 @@
 #include <QtCore>
 #include <QJsonDocument>
 
+#include "virtual_device_global.h"
+
 #include "../../svlib/sv_exception.h"
 
 #define RESET_INTERVAL  10
@@ -13,9 +15,10 @@
 #define P_LAST_REGISTER   "last_register"
 #define P_RESET_TIMEOUT   "reset_timeout"
 
-#define DEV_IMPERMISSIBLE_VALUE "Недопустимое значение параметра %1: %2.\n%3"
+#define DEV_IMPERMISSIBLE_VALUE "Недопустимое значение параметра \"%1\": %2.\n%3"
 
 //namespace dev {
+
 
   struct DeviceParams {
 
@@ -45,7 +48,6 @@
 
     static DeviceParams fromJsonObject(const QJsonObject &object) throw (SvException)
     {
-//      qDebug() << object.contains(P_START_REGISTER) << object.contains(P_RESET_TIMEOUT);
       DeviceParams p;
 
       if(object.contains(P_START_REGISTER)) {
@@ -61,7 +63,6 @@
                             .arg(object.value(P_START_REGISTER).toVariant().toString())
                             .arg("Допустимы двухбайтовые числа в формате HEX, начинающиеся с 0x"));
 
-//        p.isValid = p.isValid && ok;
 
       }
 
@@ -78,7 +79,7 @@
                             .arg(object.value(P_LAST_REGISTER).toVariant().toString())
                             .arg("Допустимы двухбайтовые числа в формате HEX, начинающиеся с 0x"));
 
-//        p.isValid = p.isValid && ok;
+    //        p.isValid = p.isValid && ok;
 
         if(p.start_register < p.last_register)
           throw SvException(QString(DEV_IMPERMISSIBLE_VALUE)
@@ -86,7 +87,7 @@
                             .arg(object.value(P_LAST_REGISTER).toVariant().toString())
                             .arg("Последний регистр меньше начального"));
 
-//        p.isValid = p.last_register >= p.start_register;
+    //        p.isValid = p.last_register >= p.start_register;
 
       }
 
@@ -100,8 +101,8 @@
 
         p.reset_timeout = object.value(P_RESET_TIMEOUT).toInt(RESET_INTERVAL);
 
-//qDebug() << p.isValid << P_RESET_TIMEOUT << p.reset_timeout;
-//        p.isValid = p.isValid && (p.reset_timeout > 0);
+    //qDebug() << p.isValid << P_RESET_TIMEOUT << p.reset_timeout;
+    //        p.isValid = p.isValid && (p.reset_timeout > 0);
 
       }
 
@@ -147,7 +148,12 @@
     }
 
   };
-//}
+
+extern "C"
+{
+  DeviceParams devParamsFromJson(const QString& json_string) throw (SvException);
+  DeviceParams devParamsFromJsonObject(const QJsonObject &object) throw (SvException);
+}
 
 #endif // DEVICE_PARAMS
 

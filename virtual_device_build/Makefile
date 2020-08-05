@@ -199,7 +199,8 @@ DIST          = /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/spec_pre.prf \
 		../../svlib/sv_abstract_logger.h \
 		../virtual_device/udp_params.h \
 		../virtual_device/serial_params.h \
-		../virtual_device/device_params.h ../virtual_device/virtual_device.cpp \
+		../virtual_device/device_params.h \
+		../virtual_device/virtual_params.h ../virtual_device/virtual_device.cpp \
 		../../svlib/sv_abstract_logger.cpp
 QMAKE_TARGET  = virtual_device
 DESTDIR       = ../../../nmea/lib/#avoid trailing-slash linebreak
@@ -554,7 +555,7 @@ dist: distdir FORCE
 distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
-	$(COPY_FILE) --parents ../virtual_device/virtual_device.h ../virtual_device/virtual_device_global.h ../global/sv_abstract_device.h ../../svlib/sv_abstract_logger.h ../virtual_device/udp_params.h ../virtual_device/serial_params.h ../virtual_device/device_params.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../virtual_device/virtual_device.h ../virtual_device/virtual_device_global.h ../global/sv_abstract_device.h ../../svlib/sv_abstract_logger.h ../virtual_device/udp_params.h ../virtual_device/serial_params.h ../virtual_device/device_params.h ../virtual_device/virtual_params.h $(DISTDIR)/
 	$(COPY_FILE) --parents ../virtual_device/virtual_device.cpp ../../svlib/sv_abstract_logger.cpp $(DISTDIR)/
 
 
@@ -803,6 +804,7 @@ moc_virtual_device.cpp: ../virtual_device/virtual_device_global.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtimezone.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qxmlstream.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtcoreversion.h \
+		../virtual_device/virtual_params.h \
 		../virtual_device/virtual_device.h
 	/opt/Qt5.5.1/5.5/gcc_64/bin/moc $(DEFINES) -I/opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++ -I/home/user/c++/NMEA_TANKER/virtual_device -I/opt/Qt5.5.1/5.5/gcc_64/include -I/opt/Qt5.5.1/5.5/gcc_64/include/QtNetwork -I/opt/Qt5.5.1/5.5/gcc_64/include/QtDBus -I/opt/Qt5.5.1/5.5/gcc_64/include/QtSerialPort -I/opt/Qt5.5.1/5.5/gcc_64/include/QtCore -I. ../virtual_device/virtual_device.h -o moc_virtual_device.cpp
 

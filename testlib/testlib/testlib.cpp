@@ -1,16 +1,17 @@
 ﻿#include "testlib.h"
 
 
-Testlib::Testlib()
+Vir1tualDevice::Vir1tualDevice():
+  ad::SvAbstractDevice()
 {
 }
 
-QString Testlib::foo()
+QString Vir1tualDevice::foo()
 {
   return "jopa";
 }
 
-AbstractTest* create()
+ad::SvAbstractDevice* create()
 {
-  return new Testlib();
+  return new Vir1tualDevice();
 }

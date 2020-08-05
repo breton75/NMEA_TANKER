@@ -14,7 +14,7 @@ CC            = gcc
 CXX           = g++
 DEFINES       = -DQT_NO_DEBUG -DQT_CORE_LIB
 CFLAGS        = -pipe -O2 -Wall -W -D_REENTRANT -fPIC $(DEFINES)
-CXXFLAGS      = -pipe -O2 -Wall -W -D_REENTRANT -fPIC $(DEFINES)
+CXXFLAGS      = -pipe -O2 -std=c++0x -Wall -W -D_REENTRANT -fPIC $(DEFINES)
 INCPATH       = -I../testapp -I. -I/opt/Qt5.5.1/5.5/gcc_64/include -I/opt/Qt5.5.1/5.5/gcc_64/include/QtCore -I. -I/opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++
 QMAKE         = /opt/Qt5.5.1/5.5/gcc_64/bin/qmake
 DEL_FILE      = rm -f
@@ -48,9 +48,11 @@ OBJECTS_DIR   = ./
 
 ####### Files
 
-SOURCES       = ../testapp/main.cpp moc_abstract_test.cpp
+SOURCES       = ../testapp/main.cpp moc_abstract_test.cpp \
+		moc_sv_abstract_device.cpp
 OBJECTS       = main.o \
-		moc_abstract_test.o
+		moc_abstract_test.o \
+		moc_sv_abstract_device.o
 DIST          = /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/spec_pre.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/common/unix.conf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/common/linux.conf \
@@ -174,6 +176,7 @@ DIST          = /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/spec_pre.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/default_pre.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/resolve_config.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/default_post.prf \
+		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/c++11.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/warn_on.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/qt.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/resources.prf \
@@ -183,7 +186,8 @@ DIST          = /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/spec_pre.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/exceptions.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/yacc.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/lex.prf \
-		../testapp/testapp.pro ../testapp/abstract_test.h ../testapp/main.cpp
+		../testapp/testapp.pro ../testapp/abstract_test.h \
+		../../global/sv_abstract_device.h ../testapp/main.cpp
 QMAKE_TARGET  = testapp
 DESTDIR       = #avoid trailing-slash linebreak
 TARGET        = testapp
@@ -337,6 +341,7 @@ Makefile: ../testapp/testapp.pro /opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++/qmake
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/default_pre.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/resolve_config.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/default_post.prf \
+		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/c++11.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/warn_on.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/qt.prf \
 		/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/resources.prf \
@@ -472,6 +477,7 @@ Makefile: ../testapp/testapp.pro /opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++/qmake
 /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/default_pre.prf:
 /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/resolve_config.prf:
 /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/default_post.prf:
+/opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/c++11.prf:
 /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/warn_on.prf:
 /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/qt.prf:
 /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/resources.prf:
@@ -497,7 +503,7 @@ dist: distdir FORCE
 distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
-	$(COPY_FILE) --parents ../testapp/abstract_test.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../testapp/abstract_test.h ../../global/sv_abstract_device.h $(DISTDIR)/
 	$(COPY_FILE) --parents ../testapp/main.cpp $(DISTDIR)/
 
 
@@ -521,9 +527,9 @@ check: first
 
 compiler_rcc_make_all:
 compiler_rcc_clean:
-compiler_moc_header_make_all: moc_abstract_test.cpp
+compiler_moc_header_make_all: moc_abstract_test.cpp moc_sv_abstract_device.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc_abstract_test.cpp
+	-$(DEL_FILE) moc_abstract_test.cpp moc_sv_abstract_device.cpp
 moc_abstract_test.cpp: /opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QtCore \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QtCoreDepends \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qabstractanimation.h \
@@ -712,6 +718,98 @@ moc_abstract_test.cpp: /opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QtCore \
 		../testapp/abstract_test.h
 	/opt/Qt5.5.1/5.5/gcc_64/bin/moc $(DEFINES) -I/opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++ -I/home/user/c++/NMEA_TANKER/testlib/testapp -I/opt/Qt5.5.1/5.5/gcc_64/include -I/opt/Qt5.5.1/5.5/gcc_64/include/QtCore -I. ../testapp/abstract_test.h -o moc_abstract_test.cpp
 
+moc_sv_abstract_device.cpp: /opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QObject \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qobject.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qobjectdefs.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qnamespace.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qglobal.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qconfig.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfeatures.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qsystemdetection.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qprocessordetection.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qcompilerdetection.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtypeinfo.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtypetraits.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qsysinfo.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qlogging.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qflags.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qbasicatomic.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_bootstrap.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qgenericatomic.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_cxx11.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_gcc.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_msvc.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_armv7.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_armv6.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_armv5.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_ia64.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_mips.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_x86.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qatomic_unix.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qglobalstatic.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qmutex.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qnumeric.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qobjectdefs_impl.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qstring.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qchar.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qbytearray.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qrefcount.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qarraydata.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qstringbuilder.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qlist.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qalgorithms.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qiterator.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qbytearraylist.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qstringlist.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qregexp.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qstringmatcher.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qcoreevent.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qscopedpointer.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qmetatype.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qvarlengtharray.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qcontainerfwd.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qisenum.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qobject_impl.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QRunnable \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qrunnable.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QDebug \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qdebug.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qhash.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qpair.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qmap.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtextstream.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qiodevice.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qlocale.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qvariant.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qshareddata.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qvector.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qpoint.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qset.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qcontiguouscache.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QThread \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qthread.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QMutex \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QTimer \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtimer.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qbasictimer.h \
+		../../virtual_device/virtual_device_global.h \
+		../../../svlib/sv_exception.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QString \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QException \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qexception.h \
+		../../../svlib/sv_abstract_logger.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QStringList \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QDate \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qdatetime.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QTime \
+		../../global/sv_signal.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QDateTime \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QVariant \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QList \
+		../../global/sv_abstract_device.h
+	/opt/Qt5.5.1/5.5/gcc_64/bin/moc $(DEFINES) -I/opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++ -I/home/user/c++/NMEA_TANKER/testlib/testapp -I/opt/Qt5.5.1/5.5/gcc_64/include -I/opt/Qt5.5.1/5.5/gcc_64/include/QtCore -I. ../../global/sv_abstract_device.h -o moc_sv_abstract_device.cpp
+
 compiler_moc_source_make_all:
 compiler_moc_source_clean:
 compiler_yacc_decl_make_all:
@@ -796,6 +894,9 @@ main.o: ../testapp/main.cpp /opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QLibrary \
 
 moc_abstract_test.o: moc_abstract_test.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_abstract_test.o moc_abstract_test.cpp
+
+moc_sv_abstract_device.o: moc_sv_abstract_device.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_sv_abstract_device.o moc_sv_abstract_device.cpp
 
 ####### Install
 

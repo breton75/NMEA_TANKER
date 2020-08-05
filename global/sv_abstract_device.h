@@ -76,12 +76,12 @@ public:
   {
     clearSignals();
   }
-  
-  virtual ~SvAbstractDevice() = 0;
-//  {
-//    emit stopThread();
+
+/* обязательно виртуальй деструктор, чтобы вызывались деструкторы наследников */
+  virtual ~SvAbstractDevice()
+  {
 //    deleteLater();
-//  }
+  }
   
 //  virtual dev::HardwareType type() const { return p_hardware_type; }
   
@@ -91,7 +91,7 @@ public:
   virtual void setLogger(sv::SvAbstractLogger* logger) { p_logger = logger; }
   virtual const sv::SvAbstractLogger* logger() const { return p_logger; }
 
-  virtual bool setup(const ad::DeviceInfo& info) = 0;
+  virtual bool configure(const ad::DeviceInfo& info) = 0;
 
   virtual const ad::DeviceInfo* info() const { return &p_info; }
 //  virtual const ad::DeviceParams* params() const { return &p_params; }
@@ -171,9 +171,11 @@ public:
     p_device(device)
   {  }
 
-  ~SvAbstractDeviceThread() = 0;
+  /* обязательно виртуальй деструктор, чтобы вызывались деструкторы наследников */
+  ~SvAbstractDeviceThread() { }
 
-  virtual void setIfcParams(const QString& params) throw(SvException&) = 0;
+  virtual void conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException) = 0;
+//  virtual void setIfcParams(const QString& params) throw(SvException&) = 0;
 
   virtual void open() throw(SvException) = 0;
   virtual quint64 write(const QByteArray& data) = 0;
@@ -184,8 +186,8 @@ public:
   }
   
 protected:
-  sv::SvAbstractLogger  *p_logger;
-  ad::SvAbstractDevice *p_device;
+  sv::SvAbstractLogger  *p_logger = nullptr;
+  ad::SvAbstractDevice  *p_device = nullptr;
 
   bool p_is_active;
 

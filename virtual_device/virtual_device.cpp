@@ -4,16 +4,50 @@
 VirtualDevice::VirtualDevice(sv::SvAbstractLogger *logger):
   ad::SvAbstractDevice(logger)
 {
-
+//  is_configured = false;
 }
 
-bool VirtualDevice::setup(const ad::DeviceInfo& info)
+VirtualDevice::~VirtualDevice()
+{
+  emit stopThread();
+  deleteLater();
+}
+
+bool VirtualDevice::configure(const ad::DeviceInfo& info)
 {
   p_info = info;
 
   try {
 
-    _params = DeviceParams::fromJson(p_info.device_params);
+    /* парсим - проверяем, что парметры устройства заданы верно */
+    DeviceParams::fromJson(p_info.device_params);
+
+    /* парсим - проверяем, что парметры для указанного интерфейса заданы верно */
+    switch (ifcesMap.value(p_info.ifc_name.toUpper(), AvailableIfces::Undefined)) {
+
+      case AvailableIfces::RS485:
+      case AvailableIfces::RS:
+
+        SerialParams::fromJsonString(p_info.ifc_params);
+
+        break;
+
+      case AvailableIfces::UDP:
+
+        UdpParams::fromJsonString(p_info.ifc_params);
+
+        break;
+
+      case AvailableIfces::VIRTUAL:
+        VirtualParams::fromJsonString(p_info.ifc_params);
+        break;
+
+      default:
+        p_exception.raise(QString("Неизвестный тип интерфейса: %1").arg(p_info.ifc_name));
+        break;
+    }
+
+    is_configured = true;
 
     return true;
 
@@ -21,8 +55,41 @@ bool VirtualDevice::setup(const ad::DeviceInfo& info)
 
   catch(SvException& e) {
 
+    is_configured = false;
+
     setLastError(e.error);
     return false;
+  }
+}
+
+bool VirtualDevice::open()
+{
+  try {
+
+    if(!is_configured)
+      p_exception.raise(QString("Для устройства '%1' не задана конфигурация").arg(p_info.name));
+
+    create_new_thread();
+
+    p_thread->conform(p_info.device_params, p_info.ifc_params);
+
+    connect(p_thread, &ad::SvAbstractDeviceThread::finished, this, &VirtualDevice::deleteThread);
+    connect(this, &VirtualDevice::stopThread, p_thread, &ad::SvAbstractDeviceThread::stop);
+
+    p_thread->open();
+    p_thread->start();
+
+    return true;
+
+  } catch(SvException& e) {
+
+    p_last_error = e.error;
+//    p_log << sv::log::mtError << sv::log::llError << e.error << sv::log::endl;
+
+    deleteThread();
+
+    return false;
+
   }
 }
 
@@ -30,21 +97,23 @@ void VirtualDevice::create_new_thread() throw(SvException)
 {
   try {
 
-    switch (ifcesMap.value(p_info.ifc_name)) {
+    switch (ifcesMap.value(p_info.ifc_name.toUpper(), AvailableIfces::Undefined)) {
 
       case AvailableIfces::RS485:
       case AvailableIfces::RS:
 
-//        p_thread = new SvSerialThread(this, p_logger);
-//        p_thread->setIfcParams(p_info.ifc_params);
+        p_thread = new VirtualDeviceSerialThread(this, p_logger);
 
         break;
 
       case AvailableIfces::UDP:
 
-//        p_thread = new SvUDPThread(this, p_logger);
-//        p_thread->setIfcParams(p_info.ifc_params);
+        p_thread = new VirtualDeviceUDPThread(this, p_logger);
+        break;
 
+
+      case AvailableIfces::VIRTUAL:
+        p_thread = new VirtualDeviceVirtualThread(this, p_logger);
         break;
 
     default:
@@ -61,12 +130,25 @@ void VirtualDevice::create_new_thread() throw(SvException)
   }
 }
 
+void VirtualDevice::close()
+{
+  emit stopThread();
+
+  p_isOpened = false;
+}
+
+void VirtualDevice::deleteThread()
+{
+  if(p_thread)
+    delete p_thread;
+}
+
 
 /** ******* UDP THREAD ************* **/
 VirtualDeviceUDPThread::VirtualDeviceUDPThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger):
   VirtualDeviceGenericThread(device, logger)
 {
-  dev_params = static_cast<VirtualDevice*>(device)->params();
+
 }
 
 VirtualDeviceUDPThread::~VirtualDeviceUDPThread()
@@ -74,11 +156,12 @@ VirtualDeviceUDPThread::~VirtualDeviceUDPThread()
   deleteLater();
 }
 
-void VirtualDeviceUDPThread::setIfcParams(const QString& params) throw(SvException&)
+void VirtualDeviceUDPThread::conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException)
 {
   try {
 
-    ifc_params = UdpParams::fromJsonString(params);
+    dev_params = DeviceParams::fromJson(jsonDevParams);
+    ifc_params = UdpParams::fromJsonString(jsonIfcParams);
 
   }
   catch(SvException& e) {
@@ -93,7 +176,7 @@ void VirtualDeviceUDPThread::open() throw(SvException)
     throw p_exception.assign(socket.errorString());
 
   // с заданным интервалом сбрасываем буфер, чтобы отсекать мусор и битые пакеты
-  p_reset_timer.setInterval(dev_params->reset_timeout);
+  p_reset_timer.setInterval(dev_params.reset_timeout);
   p_reset_timer.setSingleShot(true);
 
   connect(&socket, SIGNAL(readyRead()), &p_reset_timer, SLOT(start()));
@@ -109,9 +192,9 @@ void VirtualDeviceUDPThread::run()
 
   while(p_is_active) {
 
-    while(p_is_active && socket.waitForReadyRead(1)) {
+    while(socket.waitForReadyRead(1) && p_is_active) {
 
-      while(p_is_active && socket.hasPendingDatagrams())
+      while(socket.hasPendingDatagrams() && p_is_active)
       {
         if(socket.pendingDatagramSize() <= 0)
           continue;
@@ -178,11 +261,12 @@ VirtualDeviceSerialThread::~VirtualDeviceSerialThread()
   deleteLater();
 }
 
-void VirtualDeviceSerialThread::setIfcParams(const QString& params) throw(SvException&)
+void VirtualDeviceSerialThread::conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException)
 {
   try {
 
-    ifc_params = SerialParams::fromJsonString(params);
+    dev_params = DeviceParams::fromJson(jsonDevParams);
+    ifc_params = SerialParams::fromJsonString(jsonIfcParams);
 
   }
   catch(SvException& e) {
@@ -193,6 +277,46 @@ void VirtualDeviceSerialThread::setIfcParams(const QString& params) throw(SvExce
 
 void VirtualDeviceSerialThread::open() throw(SvException)
 {
+  port.setPortName   (ifc_params.portname   );
+  port.setBaudRate   (ifc_params.baudrate   );
+  port.setStopBits   (ifc_params.stopbits   );
+  port.setFlowControl(ifc_params.flowcontrol);
+  port.setDataBits   (ifc_params.databits   );
+  port.setParity     (ifc_params.parity     );
+
+  if(!port.open(QIODevice::ReadWrite))
+    throw p_exception.assign(port.errorString());
+
+  // с заданным интервалом сбрасываем буфер, чтобы отсекать мусор и битые пакеты
+  p_reset_timer.setInterval(dev_params.reset_timeout);
+
+  connect(&port, SIGNAL(readyRead()), &p_reset_timer, SLOT(start()));
+  connect(&p_reset_timer, &QTimer::timeout, this, &ad::SvAbstractDeviceThread::reset_buffer);
+
+  // именно после open!
+  port.moveToThread(this);
+
+}
+
+void VirtualDeviceSerialThread::run()
+{
+  p_is_active = true;
+
+  while(p_is_active) {
+
+    while(port.waitForReadyRead(1) && p_is_active) {
+
+      if(p_buff.offset > MAX_PACKET_SIZE)
+        reset_buffer();
+
+      p_buff.offset += port.read((char*)(&p_buff.buf[p_buff.offset]), MAX_PACKET_SIZE - p_buff.offset);
+
+      process_data();
+
+    }
+  }
+
+  port.close();
 
 }
 
@@ -223,6 +347,63 @@ void VirtualDeviceSerialThread::stop()
 }
 
 
+/** ******* Virtual THREAD ************* **/
+
+VirtualDeviceVirtualThread::VirtualDeviceVirtualThread(ad::SvAbstractDevice *device, sv::SvAbstractLogger* logger):
+  VirtualDeviceGenericThread(device, logger)
+{
+
+}
+
+VirtualDeviceVirtualThread::~VirtualDeviceVirtualThread()
+{
+  deleteLater();
+}
+
+void VirtualDeviceVirtualThread::conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException)
+{
+  try {
+
+    dev_params = DeviceParams::fromJson(jsonDevParams);
+    ifc_params = VirtualParams::fromJsonString(jsonIfcParams);
+
+  }
+  catch(SvException& e) {
+    throw e;
+  }
+}
+
+void VirtualDeviceVirtualThread::open() throw(SvException)
+{
+  *p_logger << sv::log::mtSuccess << QString("%1 открыт").arg(p_device->info()->name) << sv::log::endl;
+}
+
+quint64 VirtualDeviceVirtualThread::write(const QByteArray& data)
+{
+  *p_logger << sv::log::mtSuccess << QString("%1 записал данные").arg(p_device->info()->name) << sv::log::endl;
+}
+
+void VirtualDeviceVirtualThread::run()
+{
+  p_is_active = true;
+
+  while(p_is_active)
+  {
+    if(ifc_params.show_time)
+      *p_logger << sv::log::mtInfo << sv::log::TimeZZZ << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
+    else
+      *p_logger << sv::log::mtInfo << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
+
+    msleep(ifc_params.period);
+  }
+}
+
+void VirtualDeviceVirtualThread::stop()
+{
+  p_is_active = false;
+}
+
+
 /** **** GENERIC FUNCTIONS **** **/
 
 void VirtualDeviceGenericThread::process_data()
@@ -243,8 +424,8 @@ void VirtualDeviceGenericThread::process_data()
 
       quint16 current_register = (static_cast<quint16>(header.ADDRESS << 8)) + header.OFFSET;
 
-      if((current_register < static_cast<VirtualDevice*>(p_device)->params()->start_register) ||
-         (current_register > static_cast<VirtualDevice*>(p_device)->params()->last_register))
+      if((current_register < dev_params.start_register) ||
+         (current_register > dev_params.last_register))
       {
          reset_buffer();
          return;
@@ -363,10 +544,11 @@ void VirtualDeviceGenericThread::func_virtual()
 
 }
 
+
 /** ********** EXPORT ************ **/
-VIRTUAL_DEVICESHARED_EXPORT void* create()
+ad::SvAbstractDevice* create()
 {
-  ad::SvAbstractDevice* device = NULL; //new VirtualDevice();
+  ad::SvAbstractDevice* device = new VirtualDevice();
   return device;
 }
 

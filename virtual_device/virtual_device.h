@@ -13,6 +13,17 @@
 #include "serial_params.h"
 #include "udp_params.h"
 #include "device_params.h"
+#include "virtual_params.h"
+
+extern "C" {
+
+    VIRTUAL_DEVICESHARED_EXPORT ad::SvAbstractDevice* create();
+
+//    VIRTUAL_DEVICESHARED_EXPORT QString defaultDeviceParams();
+//    VIRTUAL_DEVICESHARED_EXPORT QString defaultIfcParams(const QString& ifc);
+//    VIRTUAL_DEVICESHARED_EXPORT QList<QString> availableInterfaces();
+
+}
 
 namespace vir {
 
@@ -33,14 +44,17 @@ namespace vir {
 }
 
 enum AvailableIfces {
+  Undefined = -1,
   RS,
   RS485,
-  UDP
+  UDP,
+  VIRTUAL
 };
 
 const QMap<QString, AvailableIfces> ifcesMap = {{"RS",    AvailableIfces::RS},
                                                 {"RS485", AvailableIfces::RS485},
-                                                {"UDP",   AvailableIfces::UDP}};
+                                                {"UDP",   AvailableIfces::UDP},
+                                                {"VIRTUAL",   AvailableIfces::VIRTUAL}};
 
 class VirtualDevice: public ad::SvAbstractDevice
 {
@@ -50,17 +64,21 @@ public:
   VirtualDevice(sv::SvAbstractLogger* logger = nullptr);
   ~VirtualDevice();
 
-  bool setup(const ad::DeviceInfo& info);
+  bool configure(const ad::DeviceInfo& info);
 
   bool open();
   void close();
 
   void create_new_thread() throw(SvException);
 
-  DeviceParams* params() { return &_params; }
+//  DeviceParams* params() { return &_params; }
 
 private:
-  DeviceParams _params;
+//  DeviceParams dev_params;
+//  UdpParams    udp_params;
+//  SerialParams serial_params;
+
+  bool is_configured = false;
 
 private slots:
   void deleteThread();
@@ -80,7 +98,7 @@ public:
   {   }
 
 protected:
-  DeviceParams* dev_params;
+  DeviceParams dev_params;
 
   vir::Header header;
   size_t hsz = sizeof(vir::Header);
@@ -105,17 +123,16 @@ public:
   VirtualDeviceUDPThread(ad::SvAbstractDevice *device, sv::SvAbstractLogger* logger = nullptr);
   ~VirtualDeviceUDPThread();
 
-  void setIfcParams(const QString& params) throw(SvException&);
-
   void open() throw(SvException);
 
   quint64 write(const QByteArray& data);
 
+  void conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException);
+
 private:
   QUdpSocket socket;
 
-  UdpParams     ifc_params;
-
+  UdpParams    ifc_params;
 
   void run() Q_DECL_OVERRIDE;
 
@@ -132,17 +149,16 @@ public:
   VirtualDeviceSerialThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger = nullptr);
   ~VirtualDeviceSerialThread();
 
-  void setIfcParams(const QString& params) throw(SvException&);
-
   void open() throw(SvException);
 
   quint64 write(const QByteArray& data);
 
+  void conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException);
+
 private:
   QSerialPort port;
 
-  SerialParams  ifc_params;
-  DeviceParams* dev_params;
+  SerialParams ifc_params;
 
   void run() Q_DECL_OVERRIDE;
 
@@ -152,57 +168,30 @@ public slots:
 };
 
 
-extern "C" {
+class VirtualDeviceVirtualThread: public VirtualDeviceGenericThread
+{
+  Q_OBJECT
 
-//    enum {
-//        ERROR = -1,
-//        OK = 0
-//    };
+public:
+  VirtualDeviceVirtualThread(ad::SvAbstractDevice *device, sv::SvAbstractLogger* logger = nullptr);
+  ~VirtualDeviceVirtualThread();
 
-//   class VIRTUAL_DEVICESHARED_EXPORT VirtualDevice;
-//  class VirtualDeviceThread;
-//    struct VIRTUAL_DEVICESHARED_EXPORT can_err{
-//        int code = canlib::OK;
-//        char *msg = nullptr;
-//    };
+  void open() throw(SvException);
 
-//    struct VIRTUAL_DEVICESHARED_EXPORT can_params {
-//        unsigned int error_filter = 0;
-//        int loopback = -1;       // -1 - unssigned, 0 - false, any other - true
-//        int receive_own = -1;    // -1 - unssigned, 0 - false, any other - true
-//        int can_fd = -1;         // -1 - unssigned, 0 - false, any other - true
-//        unsigned int bitrate = 0;  // 0 - unssigned
+  quint64 write(const QByteArray& data);
 
-//        int extended_frame_format = 0; // 0 - false (id is 11 bits number), any other - true (id is 29 bits number)
-//        int flexible_rate_format = 0;  // 0 - false (max 8 byte per frame), any other - true (max 64 byte per frame)
-//    };
+  void conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException);
 
-//    struct CANLIBSHARED_EXPORT can_frame {
-//      char *device;
-//      unsigned int id;
-//      int type;
-//      char *data;
-//      unsigned int data_length;
-//      char *data_str;
-//      unsigned int microseconds;
-//    };
+private:
+  VirtualParams    ifc_params;
 
-//    CANLIBSHARED_EXPORT can_err *get_can_list();
+  void run() Q_DECL_OVERRIDE;
 
-    VIRTUAL_DEVICESHARED_EXPORT void* create();
+public slots:
+  void stop();
 
-//    VIRTUAL_DEVICESHARED_EXPORT QString defaultDeviceParams();
-//    VIRTUAL_DEVICESHARED_EXPORT QString defaultIfcParams(const QString& ifc);
-//    VIRTUAL_DEVICESHARED_EXPORT QList<QString> availableInterfaces();
+};
 
-
-//    VIRTUAL_DEVICESHARED_EXPORT SvException setParams(dev::SvAbstractDevice* device, const QString params);
-//    VIRTUAL_DEVICESHARED_EXPORT SvException setIfc(dev::SvAbstractDevice* device, const QString ifc);
-
-//    VIRTUAL_DEVICESHARED_EXPORT SvException addSignal(SvSignal* signal);
-
-
-}
 
 
 
