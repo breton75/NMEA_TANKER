@@ -31,62 +31,6 @@ struct StorageParams
   quint32 alter_port = 5432;
 };
 
-//class SvCOB: public QObject
-//{
-//  Q_OBJECT
-  
-//public:
-//  SvCOB(int cobid) { _id = cobid; }
-//  ~SvCOB() { deleteLater(); } 
-  
-//  int id() { return _id; }
-  
-//  qint64 value() { return qint64(_value); }
-//  void setSignalValue(SvSignal* signal)
-//  {
-//    // формируем маску данных сигнала
-//    quint64 mask = quint64(qPow(2, signal->params()->data_length) - 1) << (63 - signal->params()->data_offset);
-    
-//    _value &= ~mask; // выключаем нужные биты
-    
-////    qDebug() << "mask" << QString::number(mask, 16) << "~mask" << QString::number(~mask, 16) << "_value" << _value << "signal" << signal->value() << signal->params()->data_length << signal->params()->data_offset;
-//    _value |= signal->value() << (63 - signal->params()->data_offset); // вставляем новое значение
-////    qDebug() << "_value" << _value;
-//  }
-  
-//  void addSignal(SvSignal* signal) { _signals.append(signal); }
-//  void clearSignals() { _signals.clear(); }
-//  QVector<SvSignal*>* Signals() { return &_signals; }
-//  int signalsCount() { return _signals.count(); }
-
-//  SvSignal* firstSignal()
-//  { 
-//    if(_signals.count()) {
-//      _pos = 0;
-//      return _signals[_pos];
-//    }
-//    else return nullptr;
-//  }
-  
-//  SvSignal* nextSignal()
-//  {
-//    return _pos < _signals.count() - 1 ? _signals[++_pos] : nullptr;
-//  }
-  
-////  QMap<int, SvSignal*>::iterator end() { return _signals.end(); }
-  
-//private:
-//  int _id;
-  
-//  QVector<SvSignal*> _signals;
-//  int _pos = -1;
-  
-//  quint64 _value = 0;
-  
-//};
-
-
-//typedef QMap<int, SvCOB*> COBMap;
 
 class SvStorageThread;
 
