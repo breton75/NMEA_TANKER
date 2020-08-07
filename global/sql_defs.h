@@ -172,6 +172,7 @@
     "select ' [' || cfgdev.cnt || ' / ' || alldev.cnt || ']'" CR \
     "from alldev,cfgdev;"
 
+/*
 //#define SQL_SELECT_SIGNALS_COUNT_STR \
 //    "with " CR \
 //    "   dev as (select %1 as idx), " CR \
@@ -182,6 +183,7 @@
 //    "               CASE WHEN (dev.idx in (20,21,22,23,24,25,26,27,28)) THEN opadev.cnt ELSE onedev.cnt END " CR \
 //    "           || ']'" CR \
 //    "from dev,onedev,opadev,cfgdev;"
+*/
 
 #define SQL_SELECT_SIGNALS_COUNT_STR \
     "with " CR \

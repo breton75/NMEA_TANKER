@@ -76,8 +76,8 @@
 
         if(object.value(P_RESET_TIMEOUT).toInt(-1) < 1)
           throw SvException(QString(DEV_IMPERMISSIBLE_VALUE)
-                            .arg(P_LAST_REGISTER)
-                            .arg(object.value(P_LAST_REGISTER).toVariant().toString())
+                            .arg(P_RESET_TIMEOUT)
+                            .arg(object.value(P_RESET_TIMEOUT).toVariant().toString())
                             .arg("Период сброса не может быть меньше 1 мсек."));
 
         p.reset_timeout = object.value(P_RESET_TIMEOUT).toInt(RESET_INTERVAL);

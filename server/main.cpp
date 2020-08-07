@@ -24,11 +24,6 @@
 #include "../global/sv_dbus.h"
 #include "../global/defs.h"
 
-//#include "../ksuts_devices/oht/sv_oht.h"
-//#include "../ksuts_devices/opa/sv_opa.h"
-//#include "../ksuts_devices/skm/sv_skm.h"
-//#include "../ksuts_devices/sktv/sv_ktv.h"
-
 #include "../../svlib/sv_sqlite.h"
 #include "../../svlib/sv_exception.h"
 #include "../../svlib/sv_config.h"
@@ -75,14 +70,13 @@ bool initConfig(const AppConfig &cfg);
 void close_db();
 bool readDevices(const AppConfig& cfg);
 bool readStorages();
-//bool readCOBs();
-//bool cobToRepository(QString storage_field_name);
 bool readSignals();
+QJsonArray parse_signals() throw(SvException);
 
-ad::SvAbstractDevice* create_device(const QJsonObject *o) throw(SvException);
-SvStorage* create_storage(QSqlQuery *q);
+ad::SvAbstractDevice* create_device(const ad::DeviceInfo &info) throw(SvException);
+//SvStorage* create_storage(const QJsonObject &o) throw(SvException);
 //SvCOB* create_cob(const QSqlQuery* q);
-SvSignal* create_signal(const QSqlQuery* q);
+//SvSignal* create_signal(const SignalInfo &info);
 
 sv::SvAbstractLogger* create_logger(const sv::log::Options& options, const QString& sender);
 
@@ -365,9 +359,9 @@ int main(int argc, char *argv[])
 
 //    /** читаем устройства, репозитории и сигналы. СИГНАЛЫ В ПОСЛЕДНЮЮ ОЧЕРЕДЬ! **/
     if(!readDevices(cfg)) exception.raise(-20);
-//    if(!readStorages()) exception.raise(-30);
+    if(!readStorages()) exception.raise(-30);
 
-//    if(!readSignals()) exception.raise(-40);
+    if(!readSignals()) exception.raise(-40);
 
 //    close_db();
 
@@ -504,29 +498,13 @@ bool initConfig(const AppConfig& cfg)
   }
 }
 
-
 bool readDevices(const AppConfig& cfg)
 {
+  dbus << llinf << mtinf << me << QString("Читаем данные устройств: ") << sv::log::endl;
 
-  dbus << llinf << mtinf << me
-       << QString("Читаем данные устройств: ") << sv::log::endl;
-  
-//  QSqlQuery q(PG->db);
-  
   try {
-
-//    QSqlError serr;
-
-////    if(cfg.single_device_mode)
-////      serr = PG->execSQL(QString(SQL_SELECT_SINGLE_INVOLVED_DEVICE).arg(cfg.single_device_index), &q);
-
-////    else
-//    serr = PG->execSQL(SQL_SELECT_INVOLVED_DEVICES, &q);
-
-//    if(serr.type() != QSqlError::NoError) exception.raise(serr.text());
     
     int counter = 0;
-//    while(q.next()) {
 
     if(!JSON.contains("devices"))
       exception.raise("Неверный файл конфигурации. Отсутствует раздел 'devices'.");
@@ -535,37 +513,51 @@ bool readDevices(const AppConfig& cfg)
 
     for(QJsonValue v: device_list) {
        
-      QJsonObject o = v.toObject();
+      /** потрошим параметры устройства **/
+      ad::DeviceInfo info = ad::DeviceInfo::fromJsonObject(v.toObject());
 
-      ad::SvAbstractDevice* newdev = create_device(&o);
+      if(!info.active)
+        continue;
+
+      dbus << lldbg << mtdbg << me
+           << QString("  %1: параметры прочитаны").arg(info.name) << sv::log::endl;
+
+      if(DEVICES.contains(info.id))
+        exception.raise(QString("Устройство %1. Повторяющийся идентификатор %2!").arg(info.name).arg(info.id));
+
+      /** создаем объект устройство **/
+      ad::SvAbstractDevice* newdev = create_device(info);
 
       if(newdev) {
 
-        DEVICES.insert(newdev->info()->id, newdev);
-
-        if(cfg.log_options.logging)
+        if(newdev->info()->active)
         {
-          LOGGERS.insert(newdev->info()->id, new sv::SvDBus(cfg.log_options));
+          DEVICES.insert(newdev->info()->id, newdev);
 
-          newdev->setLogger(LOGGERS.value(newdev->info()->id));
+          if(cfg.log_options.logging)
+          {
+            LOGGERS.insert(newdev->info()->id, new sv::SvDBus(cfg.log_options));
+
+            newdev->setLogger(LOGGERS.value(newdev->info()->id));
+          }
+
+          dbus << lldbg2 << mtdbg << me
+               << QString("  %1 [Индекс %2]\n  Параметры: %3\n  Интерфейс: %4 %5").
+                  arg(newdev->info()->name).
+                  arg(newdev->info()->id).
+                  arg(newdev->info()->dev_params).
+                  arg(newdev->info()->ifc_name).arg(newdev->info()->ifc_params)
+               << sv::log::endl;
+
+          counter++;
+
         }
-
-        dbus << lldbg << mtdbg << me
-             << QString("  %1 [Индекс %2]\n  Параметры: %3\n  Интерфейс: %4 %5").
-                arg(newdev->info()->name).
-                arg(newdev->info()->id).
-                arg(newdev->info()->device_params).
-                arg(newdev->info()->ifc_name).arg(newdev->info()->ifc_params)
-             << sv::log::endl;
-
-        counter++;
-
       }
 
       else {
 
         exception.raise(QString("Не удалось добавить устройство %1 ")
-                        .arg(v.toVariant().toString()));
+                        .arg(info.name));
 
       }
     }
@@ -593,37 +585,47 @@ bool readStorages()
 {
   dbus << llinf << me << mtinf << QString("Читаем данные хранилищ:") << sv::log::endl;
   
-  QSqlQuery* q = new QSqlQuery(PG->db);
-  
   try {
     
-    QSqlError serr = PG->execSQL(SQL_SELECT_STORAGES_LIST, q);
-    
-    if(serr.type() != QSqlError::NoError) exception.raise(serr.text());
-    
     int counter = 0;
-    while(q->next()) { 
-      
-      SvStorage* newstorage = create_storage(q);
-      
-      if(newstorage) {
-        
-        STORAGES.insert(newstorage->index(), newstorage);
 
-        dbus << lldbg << me << mtdbg << QString("  %1 [Индекс %2] %3:%4").arg(newstorage->params()->name).arg(newstorage->params()->index).arg(newstorage->params()->host).arg(newstorage->params()->port) << sv::log::endl;
-        
-        counter++;
+    if(!JSON.contains("storages"))
+
+      dbus << llinf << me << mtinf << QString("  Отсутствует раздел 'storages'.");
+
+    else
+    {
+      QJsonArray storage_list = JSON.value("storages").toArray();
+
+      for(QJsonValue v: storage_list) {
+
+        /** поторошим параметры хранилища **/
+        StorageParams params = StorageParams::fromJsonObject(v.toObject());
+
+        if(STORAGES.contains(params.id))
+          exception.raise(QString("Хранилище %1. Повторяющийся идентификатор %2!").arg(params.name).arg(params.id));
+
+        /** создаем объект хранилища **/
+        SvStorage* newstorage = new SvStorage(params, dbus);
+
+        if(newstorage) {
+
+          STORAGES.insert(newstorage->params()->id, newstorage);
+
+          dbus << lldbg << me << mtdbg << QString("  %1 [Индекс %2] %3:%4").arg(newstorage->params()->name).arg(newstorage->params()->id).arg(newstorage->params()->host).arg(newstorage->params()->port) << sv::log::endl;
+
+          counter++;
+
+        }
+
+        else {
+
+          exception.raise(QString("Не удалось добавить хранилище %1 ")
+                          .arg(v.toVariant().toString()));
+
+        }
       }
-      else
-         dbus << llerr << mterr << me
-              << QString("Не удалось добавить хранилище %1 [Индекс %2]\n")
-                        .arg(q->value("storage_name").toString())
-                        .arg(q->value("storage_index").toInt())
-              << sv::log::endl;
-        
     }
-    q->finish();
-    delete q;
     
     dbus << llinf << me << mtscc << QString("OK [Прочитано %1]\n").arg(counter) << sv::log::endl;
     
@@ -633,7 +635,6 @@ bool readStorages()
   
   catch(SvException& e) {
     
-    delete q;
     dbus << llerr<< me << mterr  << QString("Ошибка: %1\n").arg(e.error) << sv::log::endl;
     return false;
     
@@ -644,90 +645,112 @@ bool readSignals()
 {
   dbus << llinf << me << mtinf << QString("Читаем данные сигналов:") << sv::log::endl;
   
-  QSqlQuery* q = new QSqlQuery(PG->db);
-  
   try {
                                   
-    QSqlError serr = PG->execSQL(QString(SQL_SELECT_INVOLVED_SIGNALS), q);
-    
-    if(serr.type() != QSqlError::NoError) exception.raise(serr.text());
-    
     int counter = 0;
-    while(q->next()) { 
 
-      SvSignal* newsig = nullptr;
+    if(!JSON.contains("signals"))
+      exception.raise("Неверный файл конфигурации. Отсутствует раздел 'signals'.");
 
-//      if(!cfg.single_device_mode) {
+    /** парсим список сигналов. в списке сигналов могут содержаться ссылки на другие файлы. для удобства **/
+    QJsonArray signal_list = parse_signals();
 
-        newsig = create_signal(q);
-//      }
-//      else
-//      {
 
-//        // в режиме 'одной устройство' создаем сигнал, только если его устройство равно устройству при запуске
-//        if(q->value("signal_device_index").toInt() == cfg.single_device_index)
-//          newsig = create_signal(q);
+    // попутно вычисляем наибольшие длины имен сигналов, устройств и хранилищ для красивого вывода
+    int max_sig = 0;
+    int max_sig_id = -1;
+    int max_dev = 0;
+    int max_str = 0;
 
-//      }
+    for(QJsonValue v: signal_list) {
 
+      /* потрошим параметры */
+      SignalInfo info = SignalInfo::fromJsonObject(v.toObject());
+
+      if(!info.active)
+        continue;
+
+      dbus << lldbg2 << mtdbg << me << QString("  %1: параметры прочитаны").arg(info.name) << sv::log::endl;
+
+      /* создаем объект */
+      SvSignal* newsig = new SvSignal(info);
       
       if(newsig) {
 
-        SIGNALS.insert(newsig->index(), newsig);
+        if(SIGNALS.contains(newsig->id()))
+          exception.raise(QString("Сигнал %1. Повторяющийся идентификатор %2!").arg(newsig->info()->name).arg(newsig->id()));
+
+        SIGNALS.insert(newsig->id(), newsig);
         
-        dbus /*<< llall << me << mtdbg*/ << QString("  %1 [Индекс %2]").arg(newsig->params()->name).arg(newsig->index());
+        if(newsig->info()->name.length() > max_sig)
+          max_sig = newsig->info()->name.length();
+
+        if(newsig->id() > max_sig_id) max_sig_id = newsig->id();
 
         // раскидываем сигналы по устройствам
-        if(DEVICES.contains(newsig->params()->device_index)) {
+        if(DEVICES.contains(newsig->info()->device_id)) {
 
+          ad::SvAbstractDevice* device = DEVICES.value(newsig->info()->device_id);
 
-          DEVICES.value(newsig->params()->device_index)->addSignal(newsig);
+          device->addSignal(newsig);
 
-          dbus /*<< llall << me << mtdbg*/ << QString("%1 %2").arg(QString(31 - newsig->params()->name.length(), QChar('-'))).arg(DEVICES.value(newsig->params()->device_index)->info()->name);
+          if(max_dev < device->info()->name.length())
+            max_dev = device->info()->name.length();
 
-          counter++;
 
           // раскидываем сигналы по хранилищам
-          if(STORAGES.contains(0) && newsig->params()->storage0_linked) {
+          for(int storage_id: newsig->info()->storages)
+          {
+            if(STORAGES.contains(storage_id))
+            {
+              SvStorage* storage = STORAGES.value(storage_id);
 
-            STORAGES.value(0)->addSignal(newsig);
+              storage->addSignal(newsig);
 
-            dbus /*<< llall << me << mtdbg*/ << QString("%1 %2").arg(QString(6, QChar('-'))).arg(STORAGES.value(0)->params()->name);
+              if(max_str < device->info()->name.length())
+                max_str = device->info()->name.length();
 
-          }
-
-          if(STORAGES.contains(1) && newsig->params()->storage1_linked) {
-
-            STORAGES.value(1)->addSignal(newsig);
-
-            dbus /*<< llall << me << mtdbg*/ << QString("%1 %2").arg(QString(6, QChar('-'))).arg(STORAGES.value(1)->params()->name);
-
-          }
-
-          if(STORAGES.contains(2) && newsig->params()->storage2_linked) {
-
-            STORAGES.value(2)->addSignal(newsig);
-
-            dbus /*<< llall << me << mtdbg*/ << QString("%1 %2").arg(QString(6, QChar('-'))).arg(STORAGES.value(2)->params()->name);
-
+            }
           }
         }
+        else
+          dbus << llerr << me << mterr << QString("Сигнал '%1' не привязан ни к одному устройству!").arg(newsig->info()->name) << sv::log::endl;
 
-        dbus << llall << me << mtdbg << sv::log::endl;
+        counter++;
 
-      }
-      
-      else {
-
-//        if(!cfg.single_device_mode)
-//          exception.raise(QString("Не удалось добавить сигнал %1 [Индекс %2]")
-//                        .arg(q->value("signal_name").toString())
-//                        .arg(q->value("signal_index").toInt()));
       }
     }
 
-    q->finish();
-    delete q;
+    /* выводим на экран для отладки */
+    if(dbus.options().log_level >= sv::log::llDebug)
+    {
+      for(SvSignal* s: SIGNALS)
+      {
+        QString result = "";
+
+        QString idstr = QString("%1").arg(s->id());
+        result.append(QString(QString::number(max_sig_id).length() - idstr.length(), ' ')).append(idstr).append("---");
+
+        QString line1 = QString(max_sig - s->info()->name.length() + 3, QChar('-'));
+        result.append(s->info()->name).append(line1);
+
+        QString line2 = QString(max_dev, '-');
+        if(DEVICES.contains(s->info()->device_id)) {
+          line2 = QString(max_dev - DEVICES.value(s->info()->device_id)->info()->name.length() + 3, '-');
+          result.append(DEVICES.value(s->info()->device_id)->info()->name).append(line2);
+        }
+        else result.append(line2);
+
+        for(int i: s->info()->storages)
+        {
+          if(STORAGES.contains(i))
+            result.append(STORAGES.value(i)->params()->name).append(QString(max_str - STORAGES.value(i)->params()->name.length() + 3, '-'));
+        }
+
+        dbus << lldbg2 << me << mtdbg << result << sv::log::endl;
+      }
+    }
+
     
     dbus << llinf << me << mtscc << QString("OK [Прочитано %1]\n").arg(counter)  << sv::log::endl;
     
@@ -737,8 +760,6 @@ bool readSignals()
   
   catch(SvException& e) {
     
-    q->finish();
-    delete q;
     dbus << llerr << me << mterr << QString("Ошибка: %1\n").arg(e.error) << sv::log::endl;
     return false;
     
@@ -746,41 +767,58 @@ bool readSignals()
   
 }
 
-ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
+QJsonArray parse_signals() throw(SvException)
+{
+  QJsonArray a = JSON.value("signals").toArray();
+  QJsonArray r = QJsonArray();
+
+  /** если в массиве сигналов содержатся ссылки на файлы, то разбираем их и добавляем в signal_list **/
+  for(QJsonValue v: a)
+  {
+    QString P = P_FILE;
+    if(v.toObject().contains(P))
+    {
+      QFile f(v.toObject().value(P).toString());
+      if(!f.open(QIODevice::ReadOnly))
+        throw SvException(QString("Ошибка при чтении файла сигналов '%1': %2")
+                          .arg(f.fileName())
+                          .arg(f.errorString()));
+
+      QByteArray json = f.readAll().trimmed();
+
+      if(!json.startsWith("[")) json.push_front(QString("[").toUtf8());
+      if(!json.endsWith("]")) json.push_back("]");
+
+      QJsonParseError perr;
+      QJsonDocument j = QJsonDocument::fromJson(json, &perr);
+
+      if(perr.error != QJsonParseError::NoError)
+        throw SvException(QString("Ошибка разбора файла '%1': %2")
+                          .arg(f.fileName())
+                          .arg(perr.errorString()));
+
+      QJsonArray sfa = j.array();
+      for(QJsonValue o: sfa)
+        r.append(o);
+
+    }
+    else
+      r.append(v);
+  }
+
+  return r;
+}
+
+ad::SvAbstractDevice* create_device(const ad::DeviceInfo& info) throw(SvException)
 {  
   ad::SvAbstractDevice* newdev = nullptr;
   
   try {
-    // проверяем наличие основных полей
-    QStringList l = QStringList() << P_ID << P_NAME << P_DRIVER << P_DEV_PARAMS << P_IFC << P_IFC_PARAMS << P_DESCRIPTION;
-    for(QString v: l)
-      if(o->value(v).isUndefined())
-        throw exception.assign(QString("В разделе 'devices' отсутствует или не задан параметр '%1'").arg(v));
-
-    ad::DeviceInfo info;
-
-    info.id = o->value(P_ID).toInt(-1);
-    if(info.id == -1)
-      throw exception.assign(QString(L_WRONG_PARAM).arg(P_ID).arg(o->value(P_ID).toVariant().toString()));
-
-    info.name = o->value(P_NAME).toString();
-//    info.hardware_type = dev::HARDWARE_CODES.value(o->value("device_hardware_code").toString());
-  //  info.ifc_type = dev::IFC_CODES.value(o->value("device_ifc_name").toString());
-    info.ifc_name = o->value(P_IFC).toString();
-    info.ifc_params = QString(QJsonDocument(o->value(P_IFC_PARAMS).toObject()).toJson(QJsonDocument::Compact));
-    info.device_params = QString(QJsonDocument(o->value(P_DEV_PARAMS).toObject()).toJson(QJsonDocument::Compact));
-    info.driver_lib_name = o->value(P_DRIVER).toString();
-    info.is_involved = o->value(P_ACTIVE).toBool(true);
-    info.debug_mode = o->value(P_DEBUG).toBool(false);
-    info.timeout = o->value(P_TIMEOUT).toInt(0);
-
-    dbus << lldbg << mtdbg << me
-         << QString("  %1: параметры прочитаны").arg(info.name) << sv::log::endl;
 
     QLibrary devlib(info.driver_lib_name); // "/home/user/nmea/lib/libtestlib.so.1.0.0"); //
 
     if(!devlib.load())
-      throw exception.assign(devlib.errorString());
+      throw SvException(devlib.errorString());
 
     dbus << lldbg << mtdbg << me
          << QString("  %1: драйвер загружен").arg(info.name) << sv::log::endl;
@@ -792,11 +830,11 @@ ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
       newdev = create();
 
     else
-      throw exception.assign(devlib.errorString());
+      throw SvException(devlib.errorString());
 
     if(!newdev)
       exception.raise("Неизвестная ошибка при создании объекта устройства");
-    
+
     if(!newdev->configure(info))
       exception.raise(newdev->lastError());
 
@@ -808,7 +846,7 @@ ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
   }
   
   catch(SvException& e) {
-    
+
 //    dbus << llerr << me << mterr << QString("Ошибка: %1\n").arg(e.error) << sv::log::endl;
     if(newdev)
       delete newdev;
@@ -820,66 +858,6 @@ ad::SvAbstractDevice* create_device(const QJsonObject* o) throw(SvException)
   }
 }
 
-SvStorage* create_storage(QSqlQuery* q)
-{
-  
-  SvStorage* newstorage = 0;
-  
-  StorageParams params;
-  
-  params.index = q->value("storage_index").toInt();
-  params.name = q->value("storage_name").toString();
-  params.host = q->value("storage_host").toString();
-  params.port = q->value("storage_port").toUInt();
-  params.login = q->value("storage_login").toString();
-  params.pass = q->value("storage_pass").toString();
-  params.database_name = q->value("storage_dbname").toString();
-  params.table_name = q->value("storage_table_name").toString();
-  
-  try {
-    
-    newstorage = new SvStorage(params, dbus);
-    
-    return newstorage;
-    
-  }
-  
-  catch(SvException& e) {
-    
-    if(newstorage)
-      delete newstorage;
-    
-    dbus << llerr << me << mterr << QString("Ошибка: %1\n").arg(e.error) << sv::log::endl;
-    
-    return Q_NULLPTR;
-    
-  }
-}
-
-SvSignal* create_signal(const QSqlQuery* q)
-{
-  SignalParams params;
-
-  params.index = q->value("signal_index").toInt();
-//  params.cob_id = q->value("signal_cob_id").toInt();
-  params.device_index = q->value("signal_device_index").toInt();
-  params.name = q->value("signal_name").toString();
-  params.timeout = q->value("signal_timeout").toInt();
-  params.timeout_value = q->value("signal_timeout_value").toInt();
-  params.timeout_signal_index = q->value("signal_timeout_index").toInt();
-  params.data_offset = q->value("signal_data_offset").toInt();
-  params.data_length = q->value("signal_data_length").toInt();
-  params.data_type = SignalDataTypes(q->value("signal_data_type").toInt());
-  params.description = q->value("signal_description").toString();
-//  params.is_involved = q->value("signal_is_involved").toBool();
-  params.storage0_linked = q->value("signal_storage0_linked").toBool();
-  params.storage1_linked = q->value("signal_storage1_linked").toBool();
-  params.storage2_linked = q->value("signal_storage2_linked").toBool();
-
-    
-  return new SvSignal(params);;
-    
-}
 
 bool openDevices()
 {

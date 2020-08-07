@@ -51,10 +51,10 @@ enum AvailableIfces {
   VIRTUAL
 };
 
-const QMap<QString, AvailableIfces> ifcesMap = {{"RS",    AvailableIfces::RS},
-                                                {"RS485", AvailableIfces::RS485},
-                                                {"UDP",   AvailableIfces::UDP},
-                                                {"VIRTUAL",   AvailableIfces::VIRTUAL}};
+const QMap<QString, AvailableIfces> ifcesMap = {{"RS",      AvailableIfces::RS},
+                                                {"RS485",   AvailableIfces::RS485},
+                                                {"UDP",     AvailableIfces::UDP},
+                                                {"VIRTUAL", AvailableIfces::VIRTUAL}};
 
 class VirtualDevice: public ad::SvAbstractDevice
 {

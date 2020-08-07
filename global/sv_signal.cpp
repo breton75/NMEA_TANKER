@@ -1,27 +1,8 @@
 ﻿#include "sv_signal.h"
 
-SvSignal::SvSignal(SignalParams& params)
+SvSignal::SvSignal(SignalInfo &info)
 {
-  setParams(params);
-  
-  // добавляем репозитории
-//  _storages.clear();
-  
-//  QStringList l = params.storages.split(',');
-  
-//  for(QString r: l) {
-    
-//    if(r.isEmpty()) continue;
-    
-//    bool ok;
-//    int id = r.toInt(&ok);
-    
-//    if(ok) _storages.append(id);
-    
-//  }
-  
-//  connect(&_timer, &QTimer::timeout, this, &SvSignal::timeout);
-  
+  setup(info);
 }
 
 SvSignal::~SvSignal()
@@ -31,8 +12,9 @@ SvSignal::~SvSignal()
 
 void SvSignal::setValue(qreal value)
 {
-  _previous_value = _value;
-  _value = value;
-  _lost_epoch = QDateTime::currentDateTime().toMSecsSinceEpoch() + _params.timeout;
+  p_previous_value = p_value;
+  p_value = value;
+  p_last_update = QDateTime::currentDateTime();
+  p_lost_epoch = p_last_update.toMSecsSinceEpoch() + p_info.timeout;
 }
 

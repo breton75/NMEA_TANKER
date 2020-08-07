@@ -16,11 +16,10 @@ VirtualDevice::~VirtualDevice()
 bool VirtualDevice::configure(const ad::DeviceInfo& info)
 {
   p_info = info;
-
   try {
 
     /* парсим - проверяем, что парметры устройства заданы верно */
-    DeviceParams::fromJson(p_info.device_params);
+    DeviceParams::fromJson(p_info.dev_params);
 
     /* парсим - проверяем, что парметры для указанного интерфейса заданы верно */
     switch (ifcesMap.value(p_info.ifc_name.toUpper(), AvailableIfces::Undefined)) {
@@ -71,7 +70,7 @@ bool VirtualDevice::open()
 
     create_new_thread();
 
-    p_thread->conform(p_info.device_params, p_info.ifc_params);
+    p_thread->conform(p_info.dev_params, p_info.ifc_params);
 
     connect(p_thread, &ad::SvAbstractDeviceThread::finished, this, &VirtualDevice::deleteThread);
     connect(this, &VirtualDevice::stopThread, p_thread, &ad::SvAbstractDeviceThread::stop);

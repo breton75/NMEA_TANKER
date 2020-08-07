@@ -53,4 +53,5 @@ HEADERS += \
     ../../svlib/sv_abstract_logger.h
 
 DISTFILES += \
-    ../../../nmea/config.json
+    ../../../nmea/config.json \
+    ../../../nmea/signals/s.json

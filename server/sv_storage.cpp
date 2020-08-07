@@ -72,7 +72,7 @@ void SvStorage::logerr(QString e)
 void SvStorage::logreconnect()
 {
   _log << sv::log::TimeZZZ << sv::log::llInfo << QString("Фух! Восстановлена связь с хранилищем %1 [%2:%3:%4]\n")
-          .arg(_params.name).arg(_params.database_name)
+          .arg(_params.name).arg(_params.db_name)
           .arg(_params.host).arg(_params.port)
        << sv::log::endl;
 }
@@ -160,10 +160,10 @@ bool SvStorageThread::init()
   try {
 
     PGDB = new SvPGDB();
-    PGDB->setConnectionParams(_params->database_name, _params->host, _params->port,
+    PGDB->setConnectionParams(_params->db_name, _params->host, _params->port,
                               _params->login, _params->pass);
 
-    QSqlError err = PGDB->connectToDB(QString("PGConn_%1").arg(_params->index));
+    QSqlError err = PGDB->connectToDB(QString("PGConn_%1").arg(_params->id));
     if(err.type() != QSqlError::NoError)
       _exception.raise(err.text());
 
@@ -184,7 +184,7 @@ SvStorageThread::~SvStorageThread()
 {
 //  stop();
   delete PGDB;
-  QSqlDatabase::removeDatabase(QString("PGConn_%1").arg(_params->index));
+  QSqlDatabase::removeDatabase(QString("PGConn_%1").arg(_params->id));
 
   deleteLater();
 }
@@ -228,17 +228,17 @@ void SvStorageThread::run()
 
 #ifndef TEST_VALUES
         qsrand(QDateTime::currentMSecsSinceEpoch());
-        if(signal->params()->data_type == 0)
+        if(signal->info()->data_type == 0)
             signal->setValue(qreal((qrand()%2)));
         else
             signal->setValue(qreal((qrand() & 0xFF) / 255.0));
 //        qDebug() << signal->value();
 #endif
 
-      if((signal->params()->timeout >  0 && signal->isAlive()) ||
-         (signal->params()->timeout == 0 && signal->isDeviceAlive())) {
+      if((signal->info()->timeout >  0 && signal->isAlive()) ||
+         (signal->info()->timeout == 0 && signal->isDeviceAlive())) {
 
-        signals_values += QString("%1;%2|").arg(signal->index()).arg(signal->value());
+        signals_values += QString("%1;%2|").arg(signal->id()).arg(signal->value());
       
       }
 
@@ -250,14 +250,14 @@ void SvStorageThread::run()
        */
       else {
         
-        if(signal->params()->timeout_signal_index > 0)
-          signals_reserve_values += QString("%1;%2|").arg(signal->index()).arg(signal->params()->timeout_signal_index);
+        if(signal->info()->timeout_signal_id > 0)
+          signals_reserve_values += QString("%1;%2|").arg(signal->id()).arg(signal->info()->timeout_signal_id);
 
 
         else
 
           if(signal->setLostValue())
-            signals_values += QString("%1;%2|").arg(signal->index()).arg(signal->params()->timeout_value);
+            signals_values += QString("%1;%2|").arg(signal->id()).arg(signal->info()->timeout_value);
         
       }
 
@@ -278,7 +278,7 @@ void SvStorageThread::run()
 
       while(signal) {
 
-        signals_values += QString("%1;%2|").arg(signal->index()).arg(signal->params()->timeout_value);
+        signals_values += QString("%1;%2|").arg(signal->id()).arg(signal->info()->timeout_value);
 
         signal = nextSignal();
 
