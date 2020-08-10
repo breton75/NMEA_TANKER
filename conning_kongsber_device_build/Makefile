@@ -200,7 +200,8 @@ DIST          = /opt/Qt5.5.1/5.5/gcc_64/mkspecs/features/spec_pre.prf \
 		../conning_kongsber_device/device_params.h \
 		../conning_kongsber_device/ifc_udp_params.h \
 		../conning_kongsber_device/ifc_serial_params.h \
-		../conning_kongsber_device/ifc_test_params.h ../conning_kongsber_device/conning_kongsber_device.cpp \
+		../conning_kongsber_device/ifc_test_params.h \
+		../conning_kongsber_device/signal_params.h ../conning_kongsber_device/conning_kongsber_device.cpp \
 		../../svlib/sv_abstract_logger.cpp
 QMAKE_TARGET  = conning_kongsber
 DESTDIR       = ../../../nmea/lib/#avoid trailing-slash linebreak
@@ -555,7 +556,7 @@ dist: distdir FORCE
 distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
-	$(COPY_FILE) --parents ../conning_kongsber_device/conning_kongsber_device.h ../conning_kongsber_device/conning_kongsber_device_global.h ../global/sv_abstract_device.h ../../svlib/sv_abstract_logger.h ../conning_kongsber_device/device_params.h ../conning_kongsber_device/ifc_udp_params.h ../conning_kongsber_device/ifc_serial_params.h ../conning_kongsber_device/ifc_test_params.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../conning_kongsber_device/conning_kongsber_device.h ../conning_kongsber_device/conning_kongsber_device_global.h ../global/sv_abstract_device.h ../../svlib/sv_abstract_logger.h ../conning_kongsber_device/device_params.h ../conning_kongsber_device/ifc_udp_params.h ../conning_kongsber_device/ifc_serial_params.h ../conning_kongsber_device/ifc_test_params.h ../conning_kongsber_device/signal_params.h $(DISTDIR)/
 	$(COPY_FILE) --parents ../conning_kongsber_device/conning_kongsber_device.cpp ../../svlib/sv_abstract_logger.cpp $(DISTDIR)/
 
 
@@ -660,6 +661,7 @@ moc_conning_kongsber_device.cpp: ../conning_kongsber_device/conning_kongsber_dev
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QTimer \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtimer.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qbasictimer.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QHash \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QJsonDocument \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qjsondocument.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qjsonvalue.h \
@@ -677,8 +679,12 @@ moc_conning_kongsber_device.cpp: ../conning_kongsber_device/conning_kongsber_dev
 		../global/defs.h \
 		../global/sv_signal.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QDateTime \
-		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QVariant \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QList \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QJsonArray \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qjsonarray.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QFile \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfile.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfiledevice.h \
 		../../svlib/sv_crc.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QtGlobal \
 		../conning_kongsber_device/device_params.h \
@@ -699,8 +705,6 @@ moc_conning_kongsber_device.cpp: ../conning_kongsber_device/conning_kongsber_dev
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qdatastream.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qdir.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfileinfo.h \
-		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfile.h \
-		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfiledevice.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qdiriterator.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfileselector.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfilesystemwatcher.h \
@@ -723,7 +727,6 @@ moc_conning_kongsber_device.cpp: ../conning_kongsber_device/conning_kongsber_dev
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qitemselectionmodel.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qsortfilterproxymodel.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qstringlistmodel.h \
-		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qjsonarray.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qabstracteventdispatcher.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qeventloop.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qabstractnativeeventfilter.h \
@@ -806,6 +809,7 @@ moc_conning_kongsber_device.cpp: ../conning_kongsber_device/conning_kongsber_dev
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtNetwork/qhostaddress.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtNetwork/QHostAddress \
 		../conning_kongsber_device/ifc_test_params.h \
+		../conning_kongsber_device/signal_params.h \
 		../conning_kongsber_device/conning_kongsber_device.h
 	/opt/Qt5.5.1/5.5/gcc_64/bin/moc $(DEFINES) -I/opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++ -I/home/user/c++/NMEA_TANKER/conning_kongsber_device -I/opt/Qt5.5.1/5.5/gcc_64/include -I/opt/Qt5.5.1/5.5/gcc_64/include/QtNetwork -I/opt/Qt5.5.1/5.5/gcc_64/include/QtDBus -I/opt/Qt5.5.1/5.5/gcc_64/include/QtSerialPort -I/opt/Qt5.5.1/5.5/gcc_64/include/QtCore -I. ../conning_kongsber_device/conning_kongsber_device.h -o moc_conning_kongsber_device.cpp
 
@@ -884,6 +888,7 @@ moc_sv_abstract_device.cpp: /opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QObject \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QTimer \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qtimer.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qbasictimer.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QHash \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QJsonDocument \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qjsondocument.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qjsonvalue.h \
@@ -901,8 +906,12 @@ moc_sv_abstract_device.cpp: /opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QObject \
 		../global/defs.h \
 		../global/sv_signal.h \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QDateTime \
-		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QVariant \
 		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QList \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QJsonArray \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qjsonarray.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/QFile \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfile.h \
+		/opt/Qt5.5.1/5.5/gcc_64/include/QtCore/qfiledevice.h \
 		../global/sv_abstract_device.h
 	/opt/Qt5.5.1/5.5/gcc_64/bin/moc $(DEFINES) -I/opt/Qt5.5.1/5.5/gcc_64/mkspecs/linux-g++ -I/home/user/c++/NMEA_TANKER/conning_kongsber_device -I/opt/Qt5.5.1/5.5/gcc_64/include -I/opt/Qt5.5.1/5.5/gcc_64/include/QtNetwork -I/opt/Qt5.5.1/5.5/gcc_64/include/QtDBus -I/opt/Qt5.5.1/5.5/gcc_64/include/QtSerialPort -I/opt/Qt5.5.1/5.5/gcc_64/include/QtCore -I. ../global/sv_abstract_device.h -o moc_sv_abstract_device.cpp
 

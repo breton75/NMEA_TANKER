@@ -7,6 +7,7 @@
 #include <QThread>
 #include <QMutex>
 #include <QTimer>
+#include <QHash>
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -334,8 +335,16 @@ public:
 
   /** работа с сигналами, привязанными к устройству **/
 //  void addSignal(SvSignal* signal) { p_signals.insert(signal->params()->name, signal); }
-  void addSignal(SvSignal* signal)  { p_signals.insert(signal->info()->name, signal); }
-  void clearSignals()               { p_signals.clear(); }
+  virtual void addSignal(SvSignal* signal) throw(SvException)
+  {
+    if(p_signals.contains(signal->info()->name))
+      throw SvException(QString("Повторяющееся имя сигнала: %1").arg(signal->info()->name));
+
+    p_signals.insert(signal->info()->name, signal);
+  }
+
+  virtual void clearSignals()              throw(SvException) { p_signals.clear(); }
+
   int  signalsCount() const         { return p_signals.count(); }
 
   const ad::SignalMap* Signals() const { return &p_signals; }

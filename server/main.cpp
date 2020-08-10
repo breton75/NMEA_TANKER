@@ -369,7 +369,7 @@ int main(int argc, char *argv[])
     if(!openDevices()) exception.raise(-50);
 
 //    /** подключаемся к серверам баз данных - хранилищам **/
-//    initStorages();
+    initStorages();
 
   }
   
@@ -785,7 +785,6 @@ QJsonArray parse_signals() throw(SvException)
                           .arg(f.errorString()));
 
       QByteArray json = f.readAll().trimmed();
-
       if(!json.startsWith("[")) json.push_front(QString("[").toUtf8());
       if(!json.endsWith("]")) json.push_back("]");
 
@@ -798,8 +797,10 @@ QJsonArray parse_signals() throw(SvException)
                           .arg(perr.errorString()));
 
       QJsonArray sfa = j.array();
-      for(QJsonValue o: sfa)
+      for(QJsonValue o: sfa) {
         r.append(o);
+//        qDebug() << o.toObject().value("name").toString();
+      }
 
     }
     else

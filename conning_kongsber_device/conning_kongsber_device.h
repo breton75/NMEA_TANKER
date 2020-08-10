@@ -14,6 +14,7 @@
 #include "ifc_serial_params.h"
 #include "ifc_udp_params.h"
 #include "ifc_test_params.h"
+#include "signal_params.h"
 
 extern "C" {
 
@@ -37,7 +38,10 @@ namespace ckng {
   };
   #pragma pack(pop)
 
-//  bool process_data(ad::SvAbstractDevice* device, ad::BUFF* buff, ad::DATA* data, Header* header);
+  typedef QMap<int, QString> SignalByOffsetMap;
+  typedef QMap<QString, SignalByOffsetMap*> SignalsByTypeMap;
+
+  bool parse_signal(SvSignal* signal);
 
 }
 
@@ -69,12 +73,16 @@ public:
 
   void create_new_thread() throw(SvException);
 
+  void addSignal(SvSignal* signal) throw(SvException) ;//override;
+
 //  DeviceParams* params() { return &_params; }
 
 private:
-//  DeviceParams dev_params;
-//  UdpParams    udp_params;
-//  SerialParams serial_params;
+
+  ckng::SignalByOffsetMap D;
+  ckng::SignalByOffsetMap A;
+
+  ckng::SignalsByTypeMap signals_by_type;
 
   bool is_configured = false;
 
@@ -95,29 +103,25 @@ public:
     ad::SvAbstractDeviceThread(device, logger)
   {   }
 
+  void setSignalsMap(ckng::SignalsByTypeMap *sbt);
+
 protected:
   DeviceParams dev_params;
 
   ckng::Header header;
   size_t hsz = sizeof(ckng::Header);
 
-  quint8  confirm[8];
+  ckng::SignalsByTypeMap* signals_by_type;
+
 
   void process_data();
 
 private:
-  quint16 parse_data();
+
+  void parse_data();
   QByteArray confirmation();
 
   QString m_current_message;
-
-  void func_1();
-  void func_2();
-  void func_3();
-  void func_4();
-  void func_5();
-  void func_6();
-  void func_7();
 
 };
 
@@ -189,7 +193,7 @@ public:
   void conform(const QString& jsonDevParams, const QString& jsonIfcParams) throw(SvException);
 
 private:
-  VirtualParams    ifc_params;
+  TestParams    ifc_params;
 
   void run() Q_DECL_OVERRIDE;
 

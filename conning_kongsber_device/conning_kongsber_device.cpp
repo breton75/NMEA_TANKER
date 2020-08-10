@@ -4,7 +4,12 @@
 ConningKongsberDevice::ConningKongsberDevice(sv::SvAbstractLogger *logger):
   ad::SvAbstractDevice(logger)
 {
-//  is_configured = false;
+  D.clear();
+  A.clear();
+
+  signals_by_type.clear();
+  signals_by_type.insert("D", &D);
+  signals_by_type.insert("A", &A);
 }
 
 ConningKongsberDevice::~ConningKongsberDevice()
@@ -20,7 +25,7 @@ bool ConningKongsberDevice::configure(const ad::DeviceInfo& info)
   try {
 
     /* парсим - проверяем, что парметры устройства заданы верно */
-    DeviceParams::fromJson(p_info.device_params);
+    DeviceParams::fromJson(p_info.dev_params);
 
     /* парсим - проверяем, что парметры для указанного интерфейса заданы верно */
     switch (ifcesMap.value(p_info.ifc_name.toUpper(), AvailableIfces::Undefined)) {
@@ -38,8 +43,8 @@ bool ConningKongsberDevice::configure(const ad::DeviceInfo& info)
 
         break;
 
-      case AvailableIfces::VIRTUAL:
-        VirtualParams::fromJsonString(p_info.ifc_params);
+      case AvailableIfces::TEST:
+        TestParams::fromJsonString(p_info.ifc_params);
         break;
 
       default:
@@ -62,6 +67,37 @@ bool ConningKongsberDevice::configure(const ad::DeviceInfo& info)
   }
 }
 
+void ConningKongsberDevice::addSignal(SvSignal* signal) throw(SvException)
+{
+  ad::SvAbstractDevice::addSignal(signal);
+
+  ckng::SignalParams p = ckng::SignalParams::fromSignal(signal);
+  if(signal->info()->type == "D")
+  {
+   if(D.contains(p.group * 16 + p.bit))
+     throw SvException(QString(S_IMPERMISSIBLE_VALUE)
+                       .arg(QString("(%1, %2)").arg(P_GROUP).arg(P_BIT))
+                       .arg(QString("%1, %2").arg(p.group).arg(p.bit))
+                       .arg(QString("Сигнал %1: значение сдвига %1*16+%2=%3 уже задано для другого сигнала")
+                            .arg(signal->info()->name).arg(P_GROUP).arg(P_BIT).arg(p.group*16+p.bit)));
+
+    D.insert(p.group * 16 + p.bit, signal->info()->name);
+
+  }
+  else if(signal->info()->type == "A")
+  {
+    if(A.contains(p.group * 16 + p.bit))
+      throw SvException(QString(S_IMPERMISSIBLE_VALUE)
+                        .arg(QString("(%1, %2)").arg(P_GROUP).arg(P_BIT))
+                        .arg(QString("%1, %2").arg(p.group).arg(p.bit))
+                        .arg(QString("Сигнал %1: значение сдвига %1*16+%2=%3 уже задано для другого сигнала")
+                             .arg(signal->info()->name).arg(P_GROUP).arg(P_BIT).arg(p.group*16+p.bit)));
+
+    A.insert(p.group * 16 + p.bit, signal->info()->name);
+
+  }
+}
+
 bool ConningKongsberDevice::open()
 {
   try {
@@ -71,7 +107,7 @@ bool ConningKongsberDevice::open()
 
     create_new_thread();
 
-    p_thread->conform(p_info.device_params, p_info.ifc_params);
+    p_thread->conform(p_info.dev_params, p_info.ifc_params);
 
     connect(p_thread, &ad::SvAbstractDeviceThread::finished, this, &ConningKongsberDevice::deleteThread);
     connect(this, &ConningKongsberDevice::stopThread, p_thread, &ad::SvAbstractDeviceThread::stop);
@@ -112,7 +148,7 @@ void ConningKongsberDevice::create_new_thread() throw(SvException)
         break;
 
 
-      case AvailableIfces::VIRTUAL:
+      case AvailableIfces::TEST:
         p_thread = new ConningKongsberTestThread(this, p_logger);
         break;
 
@@ -121,6 +157,9 @@ void ConningKongsberDevice::create_new_thread() throw(SvException)
       break;
 
     }
+
+    static_cast<ConningKongsberGenericThread*>(p_thread)->setSignalsMap(&signals_by_type);
+
   }
 
   catch(SvException& e) {
@@ -365,7 +404,7 @@ void ConningKongsberTestThread::conform(const QString& jsonDevParams, const QStr
   try {
 
     dev_params = DeviceParams::fromJson(jsonDevParams);
-    ifc_params = VirtualParams::fromJsonString(jsonIfcParams);
+    ifc_params = TestParams::fromJsonString(jsonIfcParams);
 
   }
   catch(SvException& e) {
@@ -380,19 +419,31 @@ void ConningKongsberTestThread::open() throw(SvException)
 
 quint64 ConningKongsberTestThread::write(const QByteArray& data)
 {
+  Q_UNUSED(data);
+
   *p_logger << sv::log::mtSuccess << QString("%1 записал данные").arg(p_device->info()->name) << sv::log::endl;
+
+  return 0;
 }
 
 void ConningKongsberTestThread::run()
 {
   p_is_active = true;
 
+  int ref = 1;
   while(p_is_active)
   {
-    if(ifc_params.show_time)
-      *p_logger << sv::log::mtInfo << sv::log::TimeZZZ << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
-    else
-      *p_logger << sv::log::mtInfo << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
+    QString msg = QString("$IIXDR,%1,1,1,1,1,1,1,0,0,0,0,0,0,1,0,1,0,7*22dd").arg(ref);
+
+    memcpy(&p_buff.buf[0], msg.toStdString().c_str(), msg.length());
+    p_buff.offset = msg.length();
+
+    process_data();
+
+//    if(ifc_params.show_time)
+//      *p_logger << sv::log::mtInfo << sv::log::TimeZZZ << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
+//    else
+//      *p_logger << sv::log::mtInfo << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
 
     msleep(ifc_params.period);
   }
@@ -405,11 +456,16 @@ void ConningKongsberTestThread::stop()
 
 
 /** **** GENERIC FUNCTIONS **** **/
+void ConningKongsberGenericThread::setSignalsMap(ckng::SignalsByTypeMap *sbt)
+{
+  signals_by_type = sbt;
+//  return sv::log::sender::make(p_logger->options().log_sender_name_format,
+//                               p_info.name,
+//                               p_info.index);
+}
 
 void ConningKongsberGenericThread::process_data()
 {
-//  size_t hsz = sizeof(ckng::Header);
-
   if(p_buff.offset >= hsz) {
 
     memcpy(&header, &p_buff.buf[0], hsz);
@@ -421,9 +477,9 @@ void ConningKongsberGenericThread::process_data()
       return;
     }
 
-    m_current_message = QString::fromLocal8Bit(&p_buff.buf[0], p_buff.offset);
+    m_current_message = QString::fromLocal8Bit((const char*)(&p_buff.buf[0]), p_buff.offset);
 
-    if(message.contains('*')) {
+    if(m_current_message.contains('*')) {
 
         if(p_logger) // && p_device->info()->debug_mode)
           *p_logger //<< static_cast<dev::SvAbstractKsutsDevice*>(p_device)->make_dbus_sender()
@@ -437,54 +493,7 @@ void ConningKongsberGenericThread::process_data()
         // считаем, что линия передачи в порядке и задаем новую контрольную точку времени
         p_device->setNewLostEpoch();
 
-
-        switch (header.reference)
-        {
-          case 1: func_1(); break;
-          case 2: func_1(); break;
-          case 3: func_1(); break;
-          case 4: func_1(); break;
-          case 5: func_1(); break;
-          case 6: func_1(); break;
-          case 7: func_1(); break;
-/*
-//          {
-//              // парсим целочисленные данные и проверяем crc
-//              quint16 calc_crc = parse_discrete_data();
-
-//              if(calc_crc != p_data.crc)
-//              {
-//                // если crc не совпадает, то выходим без обработки и ответа
-//                if(p_logger)
-//                    *p_logger //<< static_cast<dev::SvAbstractKsutsDevice*>(p_device)->make_dbus_sender()
-//                              << sv::log::mtError
-//                              << sv::log::llError
-//                              << sv::log::TimeZZZ
-//                              << QString("Ошибка crc! Ожидалось %1, получено %2").arg(calc_crc, 0, 16).arg(p_data.crc, 0, 16)
-//                              << sv::log::endl;
-
-//              }
-//              else
-//              {
-
-//                // формируем и отправляем ответ-квитирование
-////                write(confirmation());
-
-//                // раскидываем данные по сигналам, в зависимости от типа данных
-//                switch (p_data.data_type) {
-
-//                  case 0x19: func_virtual(); break;
-
-//                }
-//              }
-
-//              break;
-//            }
-
-//            default:
-//                break;
-*/
-        }
+        parse_data();
 
         reset_buffer();
 
@@ -492,30 +501,58 @@ void ConningKongsberGenericThread::process_data()
   }
 }
 
-quint16 ConningKongsberGenericThread::parse_data()
+void ConningKongsberGenericThread::parse_data()
 {
-//  // тип данных
-//  memcpy(&p_data.data_type, &p_buff.buf[0] + hsz, 1);
+  int spos = m_current_message.indexOf('*');
 
-//  // длина данных
-//  memcpy(&p_data.data_length, &p_buff.buf[0] + hsz + 1, 1);
+  if(spos == -1 || (spos - sizeof(ckng::Header) <= 0))
+    return;
 
-//  // данные
-//  memcpy(&p_data.data[0], &p_buff.buf[0] + hsz + 2, p_data.data_length);
 
-//  // crc полученная
-//  memcpy(&p_data.crc, &p_buff.buf[0] + hsz + header.byte_count, 2);
+  // определяем тип постипившего сообщения - дискретный или аналоговый
+  QString type;
+  switch (header.reference[0]) {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      type = "D";
 
-//  // вычисляем crc из данных
-//  quint16 crc = CRC::MODBUS_CRC16(&p_buff.buf[0], hsz + header.byte_count);
+    case 5:
+    case 6:
+    case 7:
+      type = "A";
+      break;
 
-//  return crc;
+    default:
+      return;
+  }
 
+  // проходим по списку полученных значений
+  QList<QString> l = m_current_message.mid(sizeof(ckng::Header), spos - sizeof(ckng::Header)).split(',');
+
+  bool ok;
+  for(int i = 0; i < l.count(); ++i)
+  {
+    // находим сигнал
+    ckng::SignalByOffsetMap* sbo = signals_by_type->value(type);
+    QString signal_name = sbo->value(header.reference[0] * 16 + i);
+
+    // определяем значение
+    qreal r = l.at(i).trimmed().toDouble(&ok);
+
+    if(!ok)
+      p_device->setSignalValue(signal_name, p_device->Signals()->value(signal_name)->info()->timeout_value);
+
+    else
+      p_device->setSignalValue(signal_name, r);
+
+  }
 }
 
 QByteArray ConningKongsberGenericThread::confirmation()
 {
-//  QByteArray confirm;
+  QByteArray confirm;
 //  confirm.append((const char*)(&header), 6);
 
 //  // вычисляем crc ответа
@@ -523,57 +560,7 @@ QByteArray ConningKongsberGenericThread::confirmation()
 //  confirm.append(quint8(crc & 0xFF));
 //  confirm.append(quint8(crc >> 8));
 
-//  return confirm;
-
-}
-
-void ConningKongsberGenericThread::func_1()
-{
-  int spos = m_current_message.indexOf('*');
-
-  QList<QString> l = m_current_message.mid(sizeof(ckng::Header), spos - sizeof(ckng::Header)).split(',');
-
-  bool ok;
-  for(QString numer: l)
-  {
-    int n = numer.trimmed().toInt(&ok);
-    if(!ok)
-      p_device->setSignalValue("s", p_device->Signals()->value("s")->params()->timeout_value);
-
-    else
-      p_device->setSignalValue("s", n);
-
-  }
-
-}
-
-void ConningKongsberGenericThread::func_2()
-{
-
-}
-
-void ConningKongsberGenericThread::func_3()
-{
-
-}
-
-void ConningKongsberGenericThread::func_4()
-{
-
-}
-
-void ConningKongsberGenericThread::func_5()
-{
-
-}
-
-void ConningKongsberGenericThread::func_6()
-{
-
-}
-
-void ConningKongsberGenericThread::func_7()
-{
+  return confirm;
 
 }
 

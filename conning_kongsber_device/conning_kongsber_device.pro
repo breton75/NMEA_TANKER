@@ -29,7 +29,8 @@ HEADERS += conning_kongsber_device.h\
     device_params.h \
     ifc_udp_params.h \
     ifc_serial_params.h \
-    ifc_test_params.h
+    ifc_test_params.h \
+    signal_params.h
 
 unix {
     target.path = /usr/lib
