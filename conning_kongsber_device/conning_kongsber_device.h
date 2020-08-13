@@ -1,6 +1,8 @@
 ﻿#ifndef CONNING_KONGSBER_DEVICE_H
 #define CONNING_KONGSBER_DEVICE_H
 
+#include <QRegularExpression>
+
 #include "conning_kongsber_device_global.h"
 
 #include "../global/sv_abstract_device.h"
@@ -31,10 +33,10 @@ namespace ckng {
   #pragma pack(push,1)
   struct Header
   {
-    char start_symbol[1];
+    char start_symbol ='$';
     char talker[2];
     char name[3];
-    char reference[1];
+    char comma = ',';
   };
   #pragma pack(pop)
 
@@ -100,15 +102,18 @@ class ConningKongsberGenericThread: public ad::SvAbstractDeviceThread
 
 public:
   ConningKongsberGenericThread(ad::SvAbstractDevice* device, sv::SvAbstractLogger* logger = nullptr):
-    ad::SvAbstractDeviceThread(device, logger)
-  {   }
+    ad::SvAbstractDeviceThread(device, logger),
+    m_head(QString())
+  {
+    p_header = QString("$%1%2,").arg(dev_params.talker).arg(dev_params.name);
+  }
 
   void setSignalsMap(ckng::SignalsByTypeMap *sbt);
 
 protected:
   DeviceParams dev_params;
 
-  ckng::Header header;
+  QString p_header;
   size_t hsz = sizeof(ckng::Header);
 
   ckng::SignalsByTypeMap* signals_by_type;
@@ -117,11 +122,13 @@ protected:
   void process_data();
 
 private:
+  QString m_current_message;
+  QString m_head;
+  QRegularExpression m_tail; // = QRegularExpression("/wds/");
 
   void parse_data();
   QByteArray confirmation();
 
-  QString m_current_message;
 
 };
 

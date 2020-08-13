@@ -211,7 +211,7 @@ void ConningKongsberUDPThread::conform(const QString& jsonDevParams, const QStri
 
 void ConningKongsberUDPThread::open() throw(SvException)
 {
-  if(!socket.bind(ifc_params.recv_port, QAbstractSocket::DontShareAddress))
+  if(!socket.bind(QHostAddress(ifc_params.host), ifc_params.recv_port, QAbstractSocket::DontShareAddress))
     throw p_exception.assign(socket.errorString());
 
   // с заданным интервалом сбрасываем буфер, чтобы отсекать мусор и битые пакеты
@@ -466,52 +466,122 @@ void ConningKongsberGenericThread::setSignalsMap(ckng::SignalsByTypeMap *sbt)
 
 void ConningKongsberGenericThread::process_data()
 {
-  if(p_buff.offset >= hsz) {
+//  auto logNparse{ [=]() -> void {
 
-    memcpy(&header, &p_buff.buf[0], hsz);
+//      if(p_logger)
+//        *p_logger << sv::log::mtDebug << sv::log::llDebug << sv::log::TimeZZZ
+//                  << sv::log::in << m_current_message << sv::log::endl;
 
-    if((QString::fromLocal8Bit(&header.talker[0], sizeof(ckng::Header::talker)) != dev_params.talker) ||
-       (QString::fromLocal8Bit(&header.name[0], sizeof(ckng::Header::name)) != dev_params.name)) {
+//      // если пакеты сыпятся (для данного получателя), то считаем, что линия передачи
+//      // в порядке и задаем новую контрольную точку времени для данного устройства
+//      p_device->setNewLostEpoch();
 
-      reset_buffer();
-      return;
-    }
+//      parse_data();
 
-    m_current_message = QString::fromLocal8Bit((const char*)(&p_buff.buf[0]), p_buff.offset);
+//      reset_buffer();
 
-    if(m_current_message.contains('*')) {
+//  } };
 
-        if(p_logger) // && p_device->info()->debug_mode)
-          *p_logger //<< static_cast<dev::SvAbstractKsutsDevice*>(p_device)->make_dbus_sender()
-                    << sv::log::mtDebug
-                    << sv::log::llDebug
-                    << sv::log::TimeZZZ << sv::log::in
-                    << QString(QByteArray((const char*)&p_buff.buf[0], p_buff.offset).toHex())
-                    << sv::log::endl;
+  m_tail.setPattern("[*][0-9a-fA-F]");
 
-        // если хоть какие то пакеты сыпятся (для данного получателя), то
-        // считаем, что линия передачи в порядке и задаем новую контрольную точку времени
-        p_device->setNewLostEpoch();
+  QString s = QString::fromUtf8((const char*)(&p_buff.buf[0]), p_buff.offset);
+
+  QStringList l = s.split("\r\n");
+
+  for(int i = 0; i < l.count(); ++i)
+  {
+    m_current_message = QString(l.at(i));
+
+    /* если в строке есть заголовок */
+    if(m_current_message.startsWith(p_header))
+    {
+      /* и есть конец (контр. сумма), значит эта строка содержит полное сообщение.
+       * обрезаем то, что после контрольной суммы и парсим */
+      if(m_current_message.contains(m_tail))
+      {
+        m_current_message = m_current_message.left(m_current_message.indexOf(m_tail) + 3);
 
         parse_data();
 
-        reset_buffer();
+        m_head = "";
+
+        /* так как мы отрезаем переднюю часть сообщения, то конец тоже надо обработать */
+        l.replace(i, QString(l.at(i)).remove(0, m_current_message.length()));
+        i--; // при следующем проходе попадем опять на эту же строку
+
+      }
+
+      /* если есть заголовок, но нет 'контр. суммы', то запоминаем то что есть, как 'голову',
+       * а следующее сообщение будем крепить к 'голове' как 'хвост' */
+      else
+        m_head = m_current_message;
+
+
+    }
+
+    /* если текущее сообщение не содержит заголовка, но содержит 'контр. сумму',
+     * тогда, если 'голова' не пустая, крепим этот 'хвост' к 'голове' */
+    else if(m_current_message.contains(m_tail))
+    {
+      /* отрезаем от текущего сообщения часть до 'контр. суммы' */
+      m_current_message = m_current_message.left(m_current_message.indexOf(m_tail) + 3);
+
+      if(!m_head.isEmpty())
+      {
+        m_current_message.push_front(m_head);
+
+        m_head = "";
+
+        parse_data();
+
+      }
+
+      /* если 'голова' пустая, значит были пакеты с другим заголовком или
+       * какие то пакеты были не полные (битые). не обрабатываем */
+
+
+      /* так как мы отрезаем переднюю часть сообщения, то оставшуюся часть сообщения тоже надо обработать */
+      l.replace(i, QString(l.at(i)).remove(0, m_current_message.length()));
+      i--; // при следующем проходе попадем опять на эту же строку
+
+    }
+
+    /* если в строке нет ни заголовка, ни конца, тогда, если 'голова' не пустая,
+     * крепим текущее сообщение к голове. а иначе отбрасываем текущее сообщение как мусор */
+    else
+    {
+      if(!m_head.isEmpty())
+        m_head.append(m_current_message);
 
     }
   }
+
+  reset_buffer();
+
 }
 
 void ConningKongsberGenericThread::parse_data()
 {
-  int spos = m_current_message.indexOf('*');
-
-  if(spos == -1 || (spos - sizeof(ckng::Header) <= 0))
+  if(!m_current_message.startsWith(p_header))
     return;
 
+  if(p_logger)
+    *p_logger << sv::log::mtDebug << sv::log::llDebug << sv::log::TimeZZZ
+              << sv::log::in << m_current_message << sv::log::endl;
 
-  // определяем тип постипившего сообщения - дискретный или аналоговый
+  // если пакеты сыпятся (для данного получателя), то считаем, что линия передачи
+  // в порядке и задаем новую контрольную точку времени для данного устройства
+  p_device->setNewLostEpoch();
+
+  // определяем код постипившего сообщения
+  bool ok;
   QString type;
-  switch (header.reference[0]) {
+
+  int reference = m_current_message.mid(p_header.length(), 1).toInt(&ok);
+
+  if(!ok) return;
+
+  switch (reference) {
     case 1:
     case 2:
     case 3:
@@ -529,19 +599,22 @@ void ConningKongsberGenericThread::parse_data()
   }
 
   // проходим по списку полученных значений
-  QList<QString> l = m_current_message.mid(sizeof(ckng::Header), spos - sizeof(ckng::Header)).split(',');
+  QList<QString> l = m_current_message.mid(p_header.length() + 2, m_current_message.indexOf(m_tail) - p_header.length() + 2).split(',');
 
-  bool ok;
   for(int i = 0; i < l.count(); ++i)
   {
     // находим сигнал
     ckng::SignalByOffsetMap* sbo = signals_by_type->value(type);
-    QString signal_name = sbo->value(header.reference[0] * 16 + i);
+
+    if(!sbo->contains(reference * 16 + i))
+      return;
+
+    QString signal_name = sbo->value(reference * 16 + i);
 
     // определяем значение
     qreal r = l.at(i).trimmed().toDouble(&ok);
 
-    if(!ok)
+    if(!ok || l.at(i).trimmed().isEmpty())
       p_device->setSignalValue(signal_name, p_device->Signals()->value(signal_name)->info()->timeout_value);
 
     else
