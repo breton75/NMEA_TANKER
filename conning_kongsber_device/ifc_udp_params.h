@@ -25,11 +25,16 @@
 #define P_UDP_RECV_PORT "recv_port"
 #define P_UDP_SEND_PORT "send_port"
 
+#define UDP_IMPERMISSIBLE_VALUE "Недопустимое значение параметра \"%1\": %2.\n%3"
+
+const QMap<QString, QHostAddress::SpecialAddress> SpecialHosts = {{"localhost", QHostAddress::LocalHost},
+                                                                  {"any", QHostAddress::Any},
+                                                                  {"broadcast", QHostAddress::Broadcast}};
 
 /** структура для хранения параметров udp **/
 struct UdpParams {
 
-  QString host      = "";
+  QHostAddress host = QHostAddress::Any;
   quint16 recv_port = 6001;
   quint16 send_port = 5001;
 
@@ -58,11 +63,17 @@ struct UdpParams {
 
     if(object.contains(P_UDP_HOST)) {
 
-      if(QHostAddress(object.value(P_UDP_HOST).toString("")).toIPv4Address() == 0)
-        throw excpt.assign(QString("Wrong param value: %1 : %2").arg(P_UDP_HOST).arg(object.value(P_UDP_HOST).toVariant().toString()));
+      QString host = object.value(P_UDP_HOST).toString("").toLower();
 
-      p.host = object.value(P_UDP_HOST).toString("");
+      if(SpecialHosts.contains(host)) p.host = QHostAddress(SpecialHosts.value(host));
 
+      else
+      if(QHostAddress(host).toIPv4Address() != 0) p.host = QHostAddress(host);
+
+      else
+        throw excpt.assign(QString(UDP_IMPERMISSIBLE_VALUE)
+                           .arg(P_UDP_HOST).arg(object.value(P_UDP_HOST).toVariant().toString())
+                           .arg("Допускаются ip адреса в формате 129.168.1.1, а также слова localhost, any, broadcast"));
     }
 
     if(object.contains(P_UDP_RECV_PORT)) {
@@ -70,7 +81,9 @@ struct UdpParams {
       p.recv_port = object.value(P_UDP_RECV_PORT).toInt(0);
 
       if(p.recv_port == 0)
-        throw excpt.assign(QString("Wrong param value: %1 : %2").arg(P_UDP_RECV_PORT).arg(object.value(P_UDP_RECV_PORT).toVariant().toString()));
+        throw excpt.assign(QString(UDP_IMPERMISSIBLE_VALUE)
+                           .arg(P_UDP_RECV_PORT).arg(object.value(P_UDP_RECV_PORT).toVariant().toString())
+                           .arg("Допускаются тоьлко числовые значения"));
 
     }
 
@@ -80,7 +93,9 @@ struct UdpParams {
       p.send_port = object.value(P_UDP_SEND_PORT).toInt(0);
 
       if(p.send_port == 0)
-        throw excpt.assign(QString("Wrong param value: %1 : %2").arg(P_UDP_SEND_PORT).arg(object.value(P_UDP_SEND_PORT).toVariant().toString()));
+        throw excpt.assign(QString(UDP_IMPERMISSIBLE_VALUE)
+                           .arg(P_UDP_SEND_PORT).arg(object.value(P_UDP_SEND_PORT).toVariant().toString())
+                           .arg("Допускаются тоьлко числовые значения"));
 
     }
 
@@ -100,7 +115,7 @@ struct UdpParams {
   {
     QJsonObject j;
 
-    j.insert(P_UDP_HOST, QJsonValue(host).toString());
+    j.insert(P_UDP_HOST, QJsonValue(host.toString()).toString());
     j.insert(P_UDP_RECV_PORT, QJsonValue(static_cast<int>(recv_port)).toInt());
     j.insert(P_UDP_SEND_PORT, QJsonValue(static_cast<int>(send_port)).toInt());
 

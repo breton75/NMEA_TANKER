@@ -429,10 +429,10 @@
   "UPDATE %1 SET value=%2, last_update='%3' WHERE signal_name = '%4';" CR
 
 #define PG_FUNC_SET_VALUES \
-  "select set_values('%1');" CR
+  "select set_values('%1', '%2');" CR
 
 #define PG_FUNC_SET_RESERVE_VALUES \
-  "select set_reserve_values('%1');" CR
+  "select set_reserve('%1', '%2');" CR
 
 #define PG_SQL_EXEC_SET_SIGNAL_VALUE \
   "select set_val(%1, %2);" CR

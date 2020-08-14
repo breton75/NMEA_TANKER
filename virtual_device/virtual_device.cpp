@@ -389,9 +389,9 @@ void VirtualDeviceVirtualThread::run()
   while(p_is_active)
   {
     if(ifc_params.show_time)
-      *p_logger << sv::log::mtInfo << sv::log::TimeZZZ << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
+      *p_logger << 11 << sv::log::mtInfo << sv::log::TimeZZZ << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
     else
-      *p_logger << sv::log::mtInfo << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
+      *p_logger << 12 << sv::log::mtInfo << ifc_params.testmsg << ifc_params.testval << sv::log::endl;
 
     msleep(ifc_params.period);
   }

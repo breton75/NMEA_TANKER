@@ -7,51 +7,53 @@ MainWindow::MainWindow(const AppConfig &cfg, QWidget *parent) :
 {
   ui->setupUi(this);
 
+  ui->textLog->document()->setMaximumBlockCount(2000);
   log.setTextEdit(ui->textLog);
+
   _config =  cfg;
 
   QString title = "";
 //  _sender = "";
 
-  if(cfg.device_index > 0)
-  {
-    QSqlError e = SvPGDB::instance()->connectToDB(cfg.db_name, cfg.db_host, cfg.db_port, cfg.db_user, cfg.db_pass);
+//  if(cfg.device_index > 0)
+//  {
+//    QSqlError e = SvPGDB::instance()->connectToDB(cfg.db_name, cfg.db_host, cfg.db_port, cfg.db_user, cfg.db_pass);
 
-    if(e.type() != QSqlError::NoError)
-      QMessageBox::critical(this, "Ошибка", e.text(), QMessageBox::Ok);
+//    if(e.type() != QSqlError::NoError)
+//      QMessageBox::critical(this, "Ошибка", e.text(), QMessageBox::Ok);
 
-    else
-    {
-      QSqlQuery q;
-      e = SvPGDB::instance()->execSQL(QString(SQL_SELECT_ONE_DEVICE).arg(cfg.device_index), &q);
+//    else
+//    {
+//      QSqlQuery q;
+//      e = SvPGDB::instance()->execSQL(QString(SQL_SELECT_ONE_DEVICE).arg(cfg.device_index), &q);
 
-      if(e.type() == QSqlError::NoError)
-      {
-        if(q.first())
-        {
+//      if(e.type() == QSqlError::NoError)
+//      {
+//        if(q.first())
+//        {
 
-          _sender = sv::log::sender::make(cfg.log_options.log_sender_name_format,
-                                         q.value("device_name").toString(),
-                                         cfg.device_index);
+//          _sender = sv::log::sender::make(cfg.log_options.log_sender_name_format,
+//                                         q.value("device_name").toString(),
+//                                         cfg.device_index);
 
-          title = QString("КСУТС логгер %1 [%2]").arg(q.value("device_name").toString()).arg(_sender.name);
+//          title = QString("КСУТС логгер %1 [%2]").arg(q.value("device_name").toString()).arg(_sender.name);
 
-          q.finish();
+//          q.finish();
 
-        }
-        else
-          QMessageBox::critical(this, "Ошибка", QString("Устройство с индексом %1 не найдено").arg(cfg.device_index), QMessageBox::Ok);
+//        }
+//        else
+//          QMessageBox::critical(this, "Ошибка", QString("Устройство с индексом %1 не найдено").arg(cfg.device_index), QMessageBox::Ok);
 
-      }
+//      }
 
-      else
-        QMessageBox::critical(this, "Ошибка", e.text(), QMessageBox::Ok);
+//      else
+//        QMessageBox::critical(this, "Ошибка", e.text(), QMessageBox::Ok);
 
-      SvPGDB::instance()->disconnectFromDb();
-    }
+//      SvPGDB::instance()->disconnectFromDb();
+//    }
 
-    SvPGDB::free();
-  }
+//    SvPGDB::free();
+//  }
 
   this->setWindowTitle(title);
   ui->labelSenderName->setText(title);
@@ -70,8 +72,8 @@ MainWindow::~MainWindow()
 void MainWindow::messageSlot(const QString& sender, const QString& message, const QString& type)
 {
 //  qDebug() << sender << _config.log_options.log_sender_name_format;
-  if(_config.device_index == -1 || (_config.device_index > 0 && sender == _sender.name))
-    log << sv::log::stringToType(type) << QString("%1").arg(message) << sv::log::endl;
+//  if(_config.device_index == -1 || (_config.device_index > 0 && sender == _sender.name))
+    log << sv::log::stringToType(type) << QString("%1 [%2]").arg(message).arg(sender) << sv::log::endl;
 //  if(sender == _sender.name)
 
 }

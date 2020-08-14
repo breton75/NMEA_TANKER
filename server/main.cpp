@@ -29,6 +29,7 @@
 #include "../../svlib/sv_config.h"
 
 #include "sv_storage.h"
+#include "sv_webserver.h"
 
 SvPGDB* PG = nullptr;
 
@@ -38,10 +39,14 @@ QMap<int, SvSignal*> SIGNALS;
 
 QMap<int, sv::SvAbstractLogger*> LOGGERS;
 
+sv::SvAbstractLogger* web_logger = nullptr;
+
 SvException exception;
 
 //sv::SvConcoleLogger dbus;
 sv::SvDBus dbus;
+
+SvWebServer webserver;
 
 const OptionStructList AppOptions = {
     {{OPTION_DEBUG}, "debug","", "", ""},
@@ -78,7 +83,7 @@ ad::SvAbstractDevice* create_device(const ad::DeviceInfo &info) throw(SvExceptio
 //SvCOB* create_cob(const QSqlQuery* q);
 //SvSignal* create_signal(const SignalInfo &info);
 
-sv::SvAbstractLogger* create_logger(const sv::log::Options& options, const QString& sender);
+//sv::SvAbstractLogger* create_logger(const sv::log::Options& options, const QString& sender);
 
 QJsonObject JSON;
 
@@ -371,6 +376,9 @@ int main(int argc, char *argv[])
 //    /** подключаемся к серверам баз данных - хранилищам **/
     initStorages();
 
+    web_logger = new sv::SvDBus(cfg.log_options);
+    webserver.init(web_logger);
+
   }
   
   catch(SvException& e) {
@@ -402,6 +410,8 @@ void signal_handler(int sig)
 {
   Q_UNUSED(sig);
 
+  webserver.stop();
+  delete web_logger;
 
 //  qDebug() << "close_db()";
 //  close_db();
@@ -686,6 +696,9 @@ bool readSignals()
           max_sig = newsig->info()->name.length();
 
         if(newsig->id() > max_sig_id) max_sig_id = newsig->id();
+
+        // добавляем сигнал на веб сервер
+        webserver.addSignal(newsig);
 
         // раскидываем сигналы по устройствам
         if(DEVICES.contains(newsig->info()->device_id)) {

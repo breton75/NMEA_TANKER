@@ -211,7 +211,7 @@ void ConningKongsberUDPThread::conform(const QString& jsonDevParams, const QStri
 
 void ConningKongsberUDPThread::open() throw(SvException)
 {
-  if(!socket.bind(QHostAddress(ifc_params.host), ifc_params.recv_port, QAbstractSocket::DontShareAddress))
+  if(!socket.bind(ifc_params.host, ifc_params.recv_port, QAbstractSocket::DontShareAddress))
     throw p_exception.assign(socket.errorString());
 
   // с заданным интервалом сбрасываем буфер, чтобы отсекать мусор и битые пакеты
@@ -276,7 +276,7 @@ quint64 ConningKongsberUDPThread::write(const QByteArray& data)
 
 //  QUdpSocket s;
 //  quint64 w = s.writeDatagram(data, QHostAddress(p_ifc_params.host), p_ifc_params.send_port);
-  quint64 w = socket.writeDatagram(data, QHostAddress(ifc_params.host), ifc_params.send_port);
+  quint64 w = socket.writeDatagram(data, ifc_params.host, ifc_params.send_port);
   socket.flush();
 
   return w;
@@ -466,83 +466,40 @@ void ConningKongsberGenericThread::setSignalsMap(ckng::SignalsByTypeMap *sbt)
 
 void ConningKongsberGenericThread::process_data()
 {
-//  auto logNparse{ [=]() -> void {
+  QStringList l = QString::fromUtf8((const char*)(&p_buff.buf[0]), p_buff.offset).split("\r\n");
 
-//      if(p_logger)
-//        *p_logger << sv::log::mtDebug << sv::log::llDebug << sv::log::TimeZZZ
-//                  << sv::log::in << m_current_message << sv::log::endl;
-
-//      // если пакеты сыпятся (для данного получателя), то считаем, что линия передачи
-//      // в порядке и задаем новую контрольную точку времени для данного устройства
-//      p_device->setNewLostEpoch();
-
-//      parse_data();
-
-//      reset_buffer();
-
-//  } };
-
-  m_tail.setPattern("[*][0-9a-fA-F]");
-
-  QString s = QString::fromUtf8((const char*)(&p_buff.buf[0]), p_buff.offset);
-
-  QStringList l = s.split("\r\n");
-
-  for(int i = 0; i < l.count(); ++i)
+  for(QString current_message: l) //int i = 0; i < l.count(); ++i)
   {
-    m_current_message = QString(l.at(i));
 
     /* если в строке есть заголовок */
-    if(m_current_message.startsWith(p_header))
+    if(current_message.startsWith(p_header))
     {
-      /* и есть конец (контр. сумма), значит эта строка содержит полное сообщение.
-       * обрезаем то, что после контрольной суммы и парсим */
-      if(m_current_message.contains(m_tail))
-      {
-        m_current_message = m_current_message.left(m_current_message.indexOf(m_tail) + 3);
+      /* и есть конец (контр. сумма), значит эта строка содержит полное сообщение. парсим */
+      if(m_tail.match(current_message.right(3)).hasMatch())
 
-        parse_data();
-
-        m_head = "";
-
-        /* так как мы отрезаем переднюю часть сообщения, то конец тоже надо обработать */
-        l.replace(i, QString(l.at(i)).remove(0, m_current_message.length()));
-        i--; // при следующем проходе попадем опять на эту же строку
-
-      }
+        parseNlog(current_message);
 
       /* если есть заголовок, но нет 'контр. суммы', то запоминаем то что есть, как 'голову',
        * а следующее сообщение будем крепить к 'голове' как 'хвост' */
       else
-        m_head = m_current_message;
-
+        m_head = current_message;
 
     }
 
     /* если текущее сообщение не содержит заголовка, но содержит 'контр. сумму',
      * тогда, если 'голова' не пустая, крепим этот 'хвост' к 'голове' */
-    else if(m_current_message.contains(m_tail))
+    else if(m_tail.match(current_message.right(3)).hasMatch())
     {
-      /* отрезаем от текущего сообщения часть до 'контр. суммы' */
-      m_current_message = m_current_message.left(m_current_message.indexOf(m_tail) + 3);
-
       if(!m_head.isEmpty())
       {
-        m_current_message.push_front(m_head);
+        current_message.push_front(m_head);
 
-        m_head = "";
-
-        parse_data();
+        parseNlog(current_message);
 
       }
 
       /* если 'голова' пустая, значит были пакеты с другим заголовком или
        * какие то пакеты были не полные (битые). не обрабатываем */
-
-
-      /* так как мы отрезаем переднюю часть сообщения, то оставшуюся часть сообщения тоже надо обработать */
-      l.replace(i, QString(l.at(i)).remove(0, m_current_message.length()));
-      i--; // при следующем проходе попадем опять на эту же строку
 
     }
 
@@ -551,7 +508,7 @@ void ConningKongsberGenericThread::process_data()
     else
     {
       if(!m_head.isEmpty())
-        m_head.append(m_current_message);
+        m_head.append(current_message);
 
     }
   }
@@ -560,24 +517,26 @@ void ConningKongsberGenericThread::process_data()
 
 }
 
-void ConningKongsberGenericThread::parse_data()
+void ConningKongsberGenericThread::parseNlog(QString message)
 {
-  if(!m_current_message.startsWith(p_header))
+  m_head = "";
+
+  if(!(message.startsWith(p_header) && m_tail.match(message.right(3)).hasMatch()))
     return;
 
   if(p_logger)
     *p_logger << sv::log::mtDebug << sv::log::llDebug << sv::log::TimeZZZ
-              << sv::log::in << m_current_message << sv::log::endl;
+              << sv::log::in << message << sv::log::endl;
 
   // если пакеты сыпятся (для данного получателя), то считаем, что линия передачи
   // в порядке и задаем новую контрольную точку времени для данного устройства
   p_device->setNewLostEpoch();
 
-  // определяем код постипившего сообщения
+  // определяем код поступившего сообщения
   bool ok;
   QString type;
 
-  int reference = m_current_message.mid(p_header.length(), 1).toInt(&ok);
+  int reference = message.mid(p_header.length(), 1).toInt(&ok);
 
   if(!ok) return;
 
@@ -599,7 +558,7 @@ void ConningKongsberGenericThread::parse_data()
   }
 
   // проходим по списку полученных значений
-  QList<QString> l = m_current_message.mid(p_header.length() + 2, m_current_message.indexOf(m_tail) - p_header.length() + 2).split(',');
+  QList<QString> l = message.mid(p_header.length() + 2, message.indexOf(m_tail) - p_header.length() + 2).split(',');
 
   for(int i = 0; i < l.count(); ++i)
   {

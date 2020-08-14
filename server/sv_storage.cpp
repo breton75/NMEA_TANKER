@@ -216,8 +216,8 @@ void SvStorageThread::run()
     
     elapsed_time.restart();
     
-    QMap<QString, QString> signals_values         = {{"D", QString()}, {"A", QString()}};
-    QMap<QString, QString> signals_reserve_values = {{"D", QString()}, {"A", QString()}};
+    QMap<QString, QString> signals_values  = {{"D", QString()}, {"A", QString()}};
+    QMap<QString, QString> signals_reserve = {{"D", QString()}, {"A", QString()}};
 
     SvSignal* signal = firstSignal();
 
@@ -251,12 +251,12 @@ void SvStorageThread::run()
        */
       else {
         
-        if(signal->info()->timeout_signal_id > 0 && signals_reserve_values.contains(signal->info()->type))
-          signals_reserve_values[signal->info()->type] += QString("%1;%2|").arg(signal->id()).arg(signal->info()->timeout_signal_id);
+        if(signal->info()->timeout_signal_id > 0 && signals_reserve.contains(signal->info()->type))
+          signals_reserve[signal->info()->type] += QString("%1;%2|").arg(signal->id()).arg(signal->info()->timeout_signal_id);
 
 
         else
-
+          /* если сигналу уже назначено значение timeout_value, то setLostValue вернет false */
           if(signal->setLostValue() && signals_values.contains(signal->info()->type))
             signals_values[signal->info()->type] += QString("%1;%2|").arg(signal->id()).arg(signal->info()->timeout_value);
         
@@ -293,30 +293,36 @@ void SvStorageThread::run()
 
     try {
 
-      emit error(signals_values.value("D"));
-      emit error(signals_values.value("A"));
-      emit error(signals_reserve_values.value("D"));
-      emit error(signals_reserve_values.value("A"));
+//      emit error(signals_values.value("D"));
+//      emit error(signals_values.value("A"));
+//      emit error(signals_reserve.value("D"));
+//      emit error(signals_reserve.value("A"));
 
-//      if(!signals_values.isEmpty()) {
+      foreach (QString type, signals_values.keys()) {
 
-//        signals_values.chop(1);
-//        QSqlError serr = PGDB->execSQL(QString(PG_FUNC_SET_VALUES).arg(signals_values));
+        if(!signals_values.value(type).isEmpty()) {
 
-//        if(serr.type() != QSqlError::NoError)
-//          _exception.raise(serr.text());
+          signals_values[type].chop(1);
+          QSqlError serr = PGDB->execSQL(QString(PG_FUNC_SET_VALUES).arg(type).arg(signals_values.value(type)));
 
-//      }
+          if(serr.type() != QSqlError::NoError)
+            _exception.raise(serr.text());
 
-//      if(!signals_reserve_values.isEmpty()) {
+        }
+      }
 
-//        signals_reserve_values.chop(1);
-//        QSqlError serr = PGDB->execSQL(QString(PG_FUNC_SET_RESERVE_VALUES).arg(signals_reserve_values));
+      foreach (QString type, signals_reserve.keys()) {
 
-//        if(serr.type() != QSqlError::NoError)
-//          _exception.raise(serr.text());
+        if(!signals_reserve.value(type).isEmpty()) {
 
-//      }
+          signals_reserve[type].chop(1);
+          QSqlError serr = PGDB->execSQL(QString(PG_FUNC_SET_RESERVE_VALUES).arg(type).arg(signals_reserve.value(type)));
+
+          if(serr.type() != QSqlError::NoError)
+            _exception.raise(serr.text());
+
+        }
+      }
     }
 
     catch(SvException& e) {

@@ -190,12 +190,12 @@ int main(int argc, char *argv[])
   QString cfg_file_name = QString("%1%2%3.cfg")
           .arg(QCoreApplication::applicationDirPath())
           .arg(QDir::separator())
-          .arg("ksuts_server");
+          .arg(qApp->applicationName());
 
-  if(!parse_params(a.arguments(), cfg, cfg_file_name)) {
+//  if(!parse_params(a.arguments(), cfg, cfg_file_name)) {
 
-      return -1;
-  }
+//      return -1;
+//  }
 
   MainWindow w(cfg);
   w.show();

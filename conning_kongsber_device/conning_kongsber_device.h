@@ -106,6 +106,7 @@ public:
     m_head(QString())
   {
     p_header = QString("$%1%2,").arg(dev_params.talker).arg(dev_params.name);
+    m_tail.setPattern("[*][0-9a-fA-F][0-9a-fA-F]");
   }
 
   void setSignalsMap(ckng::SignalsByTypeMap *sbt);
@@ -122,11 +123,11 @@ protected:
   void process_data();
 
 private:
-  QString m_current_message;
+//  QString m_current_message;
   QString m_head;
   QRegularExpression m_tail; // = QRegularExpression("/wds/");
 
-  void parse_data();
+  void parseNlog(QString message);
   QByteArray confirmation();
 
 
