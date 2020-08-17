@@ -61,48 +61,97 @@ void SvWebServer::readClient()
   // Получаем объект сокета, который вызвал данный слот
   QTcpSocket* client = (QTcpSocket*)sender();
 
-  QFile f("html/index.html");
-  if(!f.open(QIODevice::ReadOnly))
-  {
-    if(m_logger)
-      *m_logger <<llError << mtError <<f.errorString() << sv::log::endl;
+  QByteArray request = client->readAll();
 
-    f.close();
-
+  QList<QByteArray> parts = request.split(' ');
+  if(request.length() < 4 || parts.count() < 3)
     return;
+
+  if(!(parts.at(0).toUpper().startsWith("GET") || parts.at(0).toUpper().startsWith("POST")))
+    return;
+
+
+  QTextStream replay(client);
+  replay.setAutoDetectUnicode(true);
+
+  if(parts.at(0).toUpper().startsWith("GET"))
+  {
+    QDir dir("html");
+    QFile f(dir.absoluteFilePath("index.html"));
+
+    if(!f.open(QIODevice::ReadOnly))
+    {
+      if(m_logger)
+        *m_logger <<llError << mtError <<f.errorString() << sv::log::endl;
+
+
+      replay << "HTTP/1.1 500 Error"
+             << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
+             << QString("<html>"
+                            "<head><meta charset=\"UTF-8\"><title>Ошибка</title>head>"
+                            "<body>"
+                            "<p \"style=font-size: 14\">%1</p>"
+                            "</body></html>").arg(f.errorString())
+             << QDateTime::currentDateTime().toString() << "\n";
+
+      f.close();
+
+    }
+    else
+    {
+
+      QString html = QString(f.readAll());
+
+      f.close();
+
+
+      replay << "HTTP/1.1 200 Ok\r\n"
+         << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
+         << html
+         << QDateTime::currentDateTime().toString() << "\n";
+
+      // Полученные данные от клиента выведем в qDebug,
+      // можно разобрать данные например от GET запроса и по условию выдавать необходимый ответ.
+      qDebug() << client->readAll() + "\n\r";
+
+    }
+  }
+  else if (parts.at(0).toUpper().startsWith("POST"))
+  {
+    QStringList r1 = QString(parts.at(1)).split('?');
+    qDebug() << "\n\n" << r1.at(1) << "\n\n";
+    if(r1.count() < 2)
+      return;
+
+    QStringList ids = QString(r1.at(1)).split(',');
+
+    QString values = "{\n";
+    for(QString curid: ids)
+    {
+      bool ok;
+      int id = curid.toInt(&ok);
+
+      if(ok && m_signals.contains(id))
+      {
+        values.append(QString("\"%1\": %2").arg(m_signals.value(id)->info()->name)
+                      .arg(m_signals.value(id)->value()));
+      }
+      values.append("}");
+
+    }
+
+    qDebug() << values;
+    replay << "HTTP/1.1 200 Ok\r\n"
+           << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
+           << values
+           << QDateTime::currentDateTime().toString() << "\n";
   }
 
-  QString html = QString(f.readAll());
-
-  f.close();
-
-//  QString data = "";
-//  for(SvSignal* signal: m_signals)
-//  {
-//    data.append("\r\n");
-//    data.append(QString("<tr><td style=\"width: 66.3px;\" \"background-color: #99ccff;\">%1</td>").arg(signal->info()->name));
-//    data.append(QString("<td id=\"%1\" style=\"width: 89.7px;\">%2</td></tr>")
-//                .arg(signal->info()->id)
-//                .arg(signal->value(), 0, 'g', 4));
-//  }
-
-  // Пример отправки ответа клиенту
-  QTextStream os(client);
-  os.setAutoDetectUnicode(true);
-  os << "HTTP/1.0 200 Ok\r\n"
-     << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
-     << html //.replace("%DATA%", data)
-     << QDateTime::currentDateTime().toString() << "\n";
-
-  // Полученные данные от клиента выведем в qDebug,
-  // можно разобрать данные например от GET запроса и по условию выдавать необходимый ответ.
-  qDebug() << client->readAll() + "\n\r";
-
   // Если нужно закрыть сокет
-//  client->close();
+  client->close();
 
-  // Удалим объект сокета из карты
-//  m_clients.remove(client->socketDescriptor());
+//   Удалим объект сокета из карты
+  m_clients.remove(client->socketDescriptor());
 
 }
 

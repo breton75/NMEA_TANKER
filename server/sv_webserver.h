@@ -8,6 +8,8 @@
 #include <QTextStream>
 #include <QDateTime>
 #include <QFile>
+#include <QHttpMultiPart>
+#include <QDir>
 
 #include "../../svlib/sv_abstract_logger.h"
 #include "../../svlib/sv_exception.h"
