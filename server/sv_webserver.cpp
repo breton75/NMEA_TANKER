@@ -63,13 +63,12 @@ void SvWebServer::readClient()
 
   QByteArray request = client->readAll();
 
-  QList<QByteArray> parts = request.split(' ');
-  if(request.length() < 4 || parts.count() < 3)
-    return;
+//  QStringList sd = QString(request).split("\r\n");
+//  for(QString d: sd) qDebug() << d;
 
-  if(!(parts.at(0).toUpper().startsWith("GET") || parts.at(0).toUpper().startsWith("POST")))
+  QList<QByteArray> parts = request.split('\n');
+  if((parts.count() < 2) || !(parts.at(0).toUpper().startsWith("GET") || parts.at(0).toUpper().startsWith("POST")))
     return;
-
 
   QTextStream replay(client);
   replay.setAutoDetectUnicode(true);
@@ -77,7 +76,7 @@ void SvWebServer::readClient()
   if(parts.at(0).toUpper().startsWith("GET"))
   {
     QDir dir("html");
-    QFile f(dir.absoluteFilePath("index.html"));
+    QFile f(dir.absoluteFilePath("index2.html"));
 
     if(!f.open(QIODevice::ReadOnly))
     {
@@ -97,6 +96,7 @@ void SvWebServer::readClient()
       f.close();
 
     }
+
     else
     {
 
@@ -104,50 +104,81 @@ void SvWebServer::readClient()
 
       f.close();
 
-
+//qDebug() <<
       replay << "HTTP/1.1 200 Ok\r\n"
          << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
-         << html
+         << html << "\r\n"
          << QDateTime::currentDateTime().toString() << "\n";
 
       // Полученные данные от клиента выведем в qDebug,
       // можно разобрать данные например от GET запроса и по условию выдавать необходимый ответ.
-      qDebug() << client->readAll() + "\n\r";
+//      qDebug() << client->readAll() + "\r\n";
 
     }
   }
   else if (parts.at(0).toUpper().startsWith("POST"))
   {
-    QStringList r1 = QString(parts.at(1)).split('?');
-    qDebug() << "\n\n" << r1.at(1) << "\n\n";
+    QStringList r1 = QString(parts.last()).split('?');
+
     if(r1.count() < 2)
       return;
 
-    QStringList ids = QString(r1.at(1)).split(',');
+    QString answer = ""; // формируем ответ в формате JSON
 
-    QString values = "{\n";
-    for(QString curid: ids)
+    if(r1.at(0) == "names")
     {
-      bool ok;
-      int id = curid.toInt(&ok);
+      QStringList names = QString(r1.at(1)).split(',');
 
-      if(ok && m_signals.contains(id))
+      for(QString name: names)
       {
-        values.append(QString("\"%1\": %2").arg(m_signals.value(id)->info()->name)
-                      .arg(m_signals.value(id)->value()));
-      }
-      values.append("}");
+        if(name.trimmed().isEmpty())
+          continue;
+        if(m_signals_by_name.contains(name))
+          answer.append(QString("{\"name\": \"%1\", \"value\": \"%2\"},")
+                        .arg(name).arg(m_signals_by_name.value(name)->value()));
 
+      }
+
+      if(!answer.isEmpty()) answer.chop(1);
     }
 
-    qDebug() << values;
-    replay << "HTTP/1.1 200 Ok\r\n"
-           << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
-           << values
-           << QDateTime::currentDateTime().toString() << "\n";
+    else if(r1.at(0) == "ids")
+    {
+      QStringList ids = QString(r1.at(1)).split(',');
+
+      for(QString curid: ids)
+      {
+        if(curid.trimmed().isEmpty())
+          continue;
+
+        bool ok;
+        int id = curid.toInt(&ok);
+
+        if(ok && m_signals_by_id.contains(id))
+          answer.append(QString("{\"id\": \"%1\", \"value\": \"%2\"}")
+                        .arg(id).arg(m_signals_by_id.value(id)->value()));
+
+      }
+
+      if(!answer.isEmpty()) answer.chop(1);
+    }
+
+    qDebug() << answer;
+    replay << "HTTP/1.0 200 Ok\r\n"
+           << "Content-Type: text/plain; charset=\"utf-8\"\r\n"
+           << QString("Content-Length: %1\r\n").arg(answer.length() + 2)
+           << "Access-Control-Allow-Origin: *\r\n"
+           << "Access-Control-Allow-Headers: *\r\n"
+           << "Origin: file://\r\n\r\n"
+           << "[" << answer << "]\n"; // формируем ответ в формате JSON
+//           << QDateTime::currentDateTime().toString() << "\n";
+
+    //           << "Host: 172.16.4.11\r\n"
+    //           << "Accept: */*\r\n"
+    //           << "Origin: file://\r\n"
   }
 
-  // Если нужно закрыть сокет
+//   Если нужно закрыть сокет
   client->close();
 
 //   Удалим объект сокета из карты

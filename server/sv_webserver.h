@@ -10,6 +10,7 @@
 #include <QFile>
 #include <QHttpMultiPart>
 #include <QDir>
+#include <QHash>
 
 #include "../../svlib/sv_abstract_logger.h"
 #include "../../svlib/sv_exception.h"
@@ -29,10 +30,14 @@ public:
 
   void addSignal(SvSignal* signal) throw(SvException)
   {
-    if(m_signals.contains(signal->info()->id))
+    if(m_signals_by_id.contains(signal->info()->id))
       throw SvException(QString("Повторяющееся id сигнала: %1").arg(signal->info()->id));
 
-    m_signals.insert(signal->info()->id, signal);
+    if(m_signals_by_name.contains(signal->info()->name))
+      throw SvException(QString("Повторяющееся id сигнала: %1").arg(signal->info()->name));
+
+    m_signals_by_id.insert(signal->info()->id, signal);
+    m_signals_by_name.insert(signal->info()->name, signal);
   }
 
 private:
@@ -42,7 +47,8 @@ private:
 
   QMap<int, QTcpSocket*> m_clients;
 
-  QMap<int, SvSignal*> m_signals;
+  QMap<int, SvSignal*> m_signals_by_id;
+  QMap<QString, SvSignal*> m_signals_by_name;
 
 signals:
 
