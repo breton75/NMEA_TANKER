@@ -20,7 +20,8 @@ DEFINES += CONNING_KONGSBER_LIBRARY
 #DEFINES += VERSION_2
 
 SOURCES += conning_kongsber_device.cpp \
-    ../../svlib/sv_abstract_logger.cpp
+    ../../svlib/sv_abstract_logger.cpp \
+    ../global/sv_signal.cpp
 
 HEADERS += conning_kongsber_device.h\
         conning_kongsber_device_global.h \
@@ -30,7 +31,8 @@ HEADERS += conning_kongsber_device.h\
     ifc_udp_params.h \
     ifc_serial_params.h \
     ifc_test_params.h \
-    signal_params.h
+    signal_params.h \
+    ../global/sv_signal.h
 
 unix {
     target.path = /usr/lib

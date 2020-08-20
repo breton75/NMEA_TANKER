@@ -546,6 +546,7 @@ void ConningKongsberGenericThread::parseNlog(QString message)
     case 3:
     case 4:
       type = "D";
+      break;
 
     case 5:
     case 6:
@@ -569,7 +570,6 @@ void ConningKongsberGenericThread::parseNlog(QString message)
       return;
 
     QString signal_name = sbo->value(reference * 16 + i);
-
     // определяем значение
     qreal r = l.at(i).trimmed().toDouble(&ok);
 

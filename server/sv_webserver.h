@@ -11,12 +11,32 @@
 #include <QHttpMultiPart>
 #include <QDir>
 #include <QHash>
+#include <QFileInfo>
 
 #include "../../svlib/sv_abstract_logger.h"
 #include "../../svlib/sv_exception.h"
 
 #include "../global/defs.h"
 #include "../global/sv_signal.h"
+
+const QMap<QString, QString> ContentTypeBySuffix = {{"html", "text/html"},
+                                                    {"cmd",  "text/cmd"},
+                                                    {"css",  "text/css"},
+                                                    {"csv",  "text/csv"},
+                                                    {"txt",  "text/plain"},
+                                                    {"php",  "text/php"},
+                                                    {"ico",  "image/vnd.microsoft.icon"},
+                                                    {"gif",  "image/gif"},
+                                                    {"jpeg", "image/jpeg"},
+                                                    {"png",  "image/png"},
+                                                    {"svg",  "image/svg+xml"},
+                                                    {"js",   "application/javascript"},
+                                                    {"xml",  "application/xml"},
+                                                    {"zip",  "application/zip"},
+                                                    {"gzip", "application/gzip"},
+                                                    {"pdf",  "application/pdf"},
+                                                    {"json", "application/json"}
+                                                   };
 
 class SvWebServer : public QObject
 {
@@ -43,12 +63,19 @@ public:
 private:
   QTcpServer m_server;
   sv::SvAbstractLogger* m_logger;
+
   quint16 m_port = 80;
+  QString m_html_dir = "html";
+  QString m_index_file = "index.html";
 
   QMap<int, QTcpSocket*> m_clients;
 
   QMap<int, SvSignal*> m_signals_by_id;
   QMap<QString, SvSignal*> m_signals_by_name;
+
+  void reply_GET_404(QTcpSocket* client, QString errorString);
+  void reply_GET_500(QTcpSocket* client, QString errorString);
+  void reply_GET_200(QTcpSocket* client, const QString& html);
 
 signals:
 

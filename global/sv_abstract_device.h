@@ -353,7 +353,7 @@ public:
   {
     if(p_signals.contains(signal_name)) {
 
-//      qDebug() << QString("SIGNAL_NAME: %1   VALUE: %2").arg(SIGNAL_NAME).arg(VALUE);
+//      qDebug() << QString("SIGNAL_NAME: %1   VALUE: %2").arg(signal_name).arg(value);
       p_signals.value(signal_name)->setValue(value);
 
     }

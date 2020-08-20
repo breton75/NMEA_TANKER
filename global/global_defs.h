@@ -5,7 +5,12 @@
 
 #define ACTUAL_DB_VERSION "1.1.0"
 
-#define OPTION_DEBUG                     "debug"
+#define CMD_START     "start"
+#define CMD_STOP      "stop"
+#define CMD_RESTART   "restart"
+#define CMD_STATUS    "status"
+#define CMD_DEBUG     "debug"
+
 #define OPTION_CONFIG_FILE               "config_file_name"
 #define OPTION_DB_HOST                   "db_host"
 #define OPTION_DB_PORT                   "db_port"
@@ -30,8 +35,22 @@
 #define OPTION_PATH_TO_POSTGRES_BIN      "postgres_bin_path"
 #define OPTION_LOG_SENDER_NAME_FORMAT    "log_sender_name_format"
 
+struct CmdConfig {
+  bool start    = false;
+  bool stop     = false;
+  bool restart  = false;
+  bool status   = false;
+  bool debug    = false;
+};
+
 struct AppConfig {
-    bool debug;
+
+  bool start    = false;
+  bool stop     = false;
+  bool restart  = false;
+  bool status   = false;
+  bool debug    = false;
+
     QString config_file_name;
     QString db_name;
     QString db_host;

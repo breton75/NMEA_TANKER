@@ -73,7 +73,7 @@ void MainWindow::messageSlot(const QString& sender, const QString& message, cons
 {
 //  qDebug() << sender << _config.log_options.log_sender_name_format;
 //  if(_config.device_index == -1 || (_config.device_index > 0 && sender == _sender.name))
-    log << sv::log::stringToType(type) << QString("%1 [%2]").arg(message).arg(sender) << sv::log::endl;
+    log << sv::log::stringToType(type) << QString("%1").arg(message) << sv::log::endl;
 //  if(sender == _sender.name)
 
 }

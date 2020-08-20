@@ -25,20 +25,16 @@ bool SvWebServer::init(sv::SvAbstractLogger *logger, quint16 port)
   if (!m_server.listen(QHostAddress::Any, m_port))
   {
     if(m_logger)
-      *m_logger << llInfo << mtInfo << TimeZZZ << QString("Web сервер запущен на %1 порту").arg(m_port) << sv::log::endl;
+      *m_logger << llInfo << mtInfo << TimeZZZ << QString("Ошибка запуска web сервера: %1").arg(m_server.errorString()) << sv::log::endl;
 
-    qDebug() <<  QObject::tr("Unable to start the server: %1.").arg(m_server.errorString());
-
-    return true;
+    return false;
 
   } else {
 
     if(m_logger)
       *m_logger << llInfo << mtInfo << TimeZZZ << QString("Web сервер запущен на %1 порту").arg(m_port) << sv::log::endl;
 
-    qDebug() << QString::fromUtf8("Сервер запущен!");
-
-    return false;
+    return true;
   }
 }
 
@@ -46,7 +42,7 @@ void SvWebServer::newConnection()
 {
   if(m_server.isListening())
   {
-    qDebug() << QString::fromUtf8("У нас новое соединение!");
+//    qDebug() << QString::fromUtf8("У нас новое соединение!");
 
     QTcpSocket* client = m_server.nextPendingConnection();
 
@@ -63,11 +59,18 @@ void SvWebServer::readClient()
 
   QByteArray request = client->readAll();
 
-//  QStringList sd = QString(request).split("\r\n");
-//  for(QString d: sd) qDebug() << d;
-
   QList<QByteArray> parts = request.split('\n');
-  if((parts.count() < 2) || !(parts.at(0).toUpper().startsWith("GET") || parts.at(0).toUpper().startsWith("POST")))
+
+  if((parts.count() < 2))
+    return;
+
+  if(!(parts.at(0).toUpper().startsWith("GET") || parts.at(0).toUpper().startsWith("POST")))
+    return;
+
+  if(parts.at(0).indexOf("HTTP") < 4)
+    return;
+
+  if(parts.at(0).split(' ').count() < 3)
     return;
 
   QTextStream replay(client);
@@ -75,55 +78,69 @@ void SvWebServer::readClient()
 
   if(parts.at(0).toUpper().startsWith("GET"))
   {
-    QDir dir("html");
-    QFile f(dir.absoluteFilePath("index2.html"));
-
-    if(!f.open(QIODevice::ReadOnly))
+    if(m_logger && m_logger->options().log_level >= sv::log::llDebug2)
     {
-      if(m_logger)
-        *m_logger <<llError << mtError <<f.errorString() << sv::log::endl;
-
-
-      replay << "HTTP/1.1 500 Error"
-             << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
-             << QString("<html>"
-                            "<head><meta charset=\"UTF-8\"><title>Ошибка</title>head>"
-                            "<body>"
-                            "<p \"style=font-size: 14\">%1</p>"
-                            "</body></html>").arg(f.errorString())
-             << QDateTime::currentDateTime().toString() << "\n";
-
-      f.close();
-
+      QStringList sd = QString(request).split("\r\n");
+      for(QString d: sd)
+        *m_logger << sv::log::llDebug2 << sv::log::mtDebug << d << sv::log::endl;
     }
+
+    QDir dir(m_html_dir);
+    QString filepath = QString(parts.at(0).split(' ').at(1));
+//    QString filename;
+
+    if(filepath.startsWith('/'))
+      filepath.remove(0, 1);
+
+    if(QFileInfo(dir, filepath).isDir())
+      filepath = m_index_file;
+
+
+
+    QFile f(dir.absoluteFilePath(filepath));
+
+//    qDebug() << dir.path() << filepath << dir.absoluteFilePath(filepath);
+    if(!f.exists())
+      reply_GET_404(client, QString("Файл отсутствует: %1").arg(filepath));
+
+    else if(!f.open(QIODevice::ReadOnly))
+      reply_GET_500(client, f.errorString());
 
     else
     {
-
       QString html = QString(f.readAll());
 
-      f.close();
+      QString content_type = ContentTypeBySuffix.contains(QFileInfo(filepath).suffix())
+                                     ? ContentTypeBySuffix.value(QFileInfo(filepath).suffix())
+                                     : "application/octet-stream"; //двоичный файл без указания формата (RFC 2046)
 
-//qDebug() <<
+
       replay << "HTTP/1.1 200 Ok\r\n"
-         << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
-         << html << "\r\n"
-         << QDateTime::currentDateTime().toString() << "\n";
-
-      // Полученные данные от клиента выведем в qDebug,
-      // можно разобрать данные например от GET запроса и по условию выдавать необходимый ответ.
-//      qDebug() << client->readAll() + "\r\n";
+             << QString("Content-Type: %1; charset=\"utf-8\"\r\n\r\n").arg(content_type)
+             << html << "\r\n";
 
     }
+
+    if(f.isOpen())
+      f.close();
+
   }
+
   else if (parts.at(0).toUpper().startsWith("POST"))
   {
+    if(m_logger && m_logger->options().log_level >= sv::log::llDebug2)
+    {
+      QStringList sd = QString(request).split("\r\n");
+      for(QString d: sd)
+        *m_logger << sv::log::llDebug2 << sv::log::mtDebug << d << sv::log::endl;
+    }
+
     QStringList r1 = QString(parts.last()).split('?');
 
     if(r1.count() < 2)
       return;
 
-    QString answer = ""; // формируем ответ в формате JSON
+    QString json = ""; // формируем ответ в формате JSON
 
     if(r1.at(0) == "names")
     {
@@ -134,12 +151,12 @@ void SvWebServer::readClient()
         if(name.trimmed().isEmpty())
           continue;
         if(m_signals_by_name.contains(name))
-          answer.append(QString("{\"name\": \"%1\", \"value\": \"%2\"},")
+          json.append(QString("{\"name\":\"%1\",\"value\":%2},")
                         .arg(name).arg(m_signals_by_name.value(name)->value()));
 
       }
 
-      if(!answer.isEmpty()) answer.chop(1);
+      if(!json.isEmpty()) json.chop(1);
     }
 
     else if(r1.at(0) == "ids")
@@ -155,22 +172,35 @@ void SvWebServer::readClient()
         int id = curid.toInt(&ok);
 
         if(ok && m_signals_by_id.contains(id))
-          answer.append(QString("{\"id\": \"%1\", \"value\": \"%2\"}")
+          json.append(QString("{\"id\":\"%1\",\"value\":\"%2\"},")
                         .arg(id).arg(m_signals_by_id.value(id)->value()));
 
       }
 
-      if(!answer.isEmpty()) answer.chop(1);
+      if(!json.isEmpty()) json.chop(1);
     }
 
-    qDebug() << answer;
-    replay << "HTTP/1.0 200 Ok\r\n"
-           << "Content-Type: text/plain; charset=\"utf-8\"\r\n"
-           << QString("Content-Length: %1\r\n").arg(answer.length() + 2)
-           << "Access-Control-Allow-Origin: *\r\n"
-           << "Access-Control-Allow-Headers: *\r\n"
-           << "Origin: file://\r\n\r\n"
-           << "[" << answer << "]\n"; // формируем ответ в формате JSON
+
+    QString answer;
+    answer.append("HTTP/1.0 200 Ok\r\n")
+          .append("Content-Type: application/json; charset=\"utf-8\"\r\n")
+          .append(QString("Content-Length: %1\r\n").arg(answer.length() + 2))
+          .append("Access-Control-Allow-Origin: *\r\n")
+          .append("Access-Control-Allow-Headers: *\r\n")
+          .append("Origin: file://\r\n\r\n")        //! обязательно два!
+          .append("[").append(json).append("]\n");
+
+    replay << answer;
+//        << "HTTP/1.0 200 Ok\r\n"
+//           << "Content-Type: application/json; charset=\"utf-8\"\r\n"
+//           << QString("Content-Length: %1\r\n").arg(answer.length() + 2)
+//           << "Access-Control-Allow-Origin: *\r\n"
+//           << "Access-Control-Allow-Headers: *\r\n"
+//           << "Origin: file://\r\n\r\n" //! обязательно два!
+//           << "[" << answer << "]\n"; // формируем ответ в формате JSON
+    if(m_logger && m_logger->options().log_level >= sv::log::llDebug2)
+      *m_logger << sv::log::llDebug2 << sv::log::mtDebug << answer << sv::log::endl;
+
 //           << QDateTime::currentDateTime().toString() << "\n";
 
     //           << "Host: 172.16.4.11\r\n"
@@ -183,6 +213,53 @@ void SvWebServer::readClient()
 
 //   Удалим объект сокета из карты
   m_clients.remove(client->socketDescriptor());
+
+}
+
+void SvWebServer::reply_GET_404(QTcpSocket* client, QString errorString)
+{
+  if(m_logger)
+    *m_logger <<llError << mtError << errorString << sv::log::endl;
+
+  QTextStream replay(client);
+  replay.setAutoDetectUnicode(true);
+
+  replay << "HTTP/1.1 404 Error"
+         << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
+         << QString("<html>"
+                        "<head><meta charset=\"UTF-8\"><title>Ошибка</title><head>"
+                        "<body>"
+                        "<p style=\"font-size: 16\">%1</p>"
+                        "<a href=\"index.html\" style=\"font-size: 14\">На главную</a>"
+                        "<p>%2</p>"
+                        "</body></html>\n")
+            .arg(errorString)
+            .arg(QDateTime::currentDateTime().toString());
+}
+
+void SvWebServer::reply_GET_500(QTcpSocket* client, QString errorString)
+{
+  if(m_logger)
+    *m_logger <<llError << mtError << errorString << sv::log::endl;
+
+  QTextStream replay(client);
+  replay.setAutoDetectUnicode(true);
+
+  replay << "HTTP/1.1 500 Error"
+         << "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
+         << QString("<html>"
+                        "<head><meta charset=\"UTF-8\"><title>Ошибка</title>head>"
+                        "<body>"
+                        "<p \"style=font-size: 16\">%1</p>"
+                        "<a href=\"index.html\" \"style=font-size: 14\">На главную</a>"
+                        "<p>%2</p>"
+                        "</body></html>\n")
+            .arg(errorString)
+            .arg(QDateTime::currentDateTime().toString());
+}
+
+void SvWebServer::reply_GET_200(QTcpSocket* client, const QString& html)
+{
 
 }
 
@@ -200,6 +277,7 @@ void SvWebServer::stop()
 
   m_server.close();
 
-  qDebug() << QString::fromUtf8("Сервер остановлен!");
+  if(m_logger)
+    *m_logger << sv::log::llInfo << sv::log::mtInfo << "Web сервер остановлен!" << sv::log::endl;
 
 }
