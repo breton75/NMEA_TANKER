@@ -9,7 +9,7 @@ TARGET = /home/user/nmea/server
 DEFINES += APP_DEBUG=1
 DEFINES += TEST_VALUES
 
-VERSION = 0.1.0    # major.minor.patch
+VERSION = 0.2.0    # major.minor.patch
 DEFINES += APP_VERSION=\\\"$$VERSION\\\"
 DEFINES += VERSION_2
 
@@ -53,7 +53,8 @@ HEADERS += \
     ../global/device_params.h \
     ../../svlib/sv_abstract_logger.h \
     sv_webserver.h \
-    ../global/defs.h
+    ../global/defs.h \
+    app_config.h
 
 DISTFILES += \
     ../../../nmea/config.json \

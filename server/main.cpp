@@ -25,6 +25,8 @@
 #include "../global/sv_dbus.h"
 #include "../global/defs.h"
 
+//#include "app_config.h"
+
 #include "../../svlib/sv_sqlite.h"
 #include "../../svlib/sv_exception.h"
 #include "../../svlib/sv_config.h"
@@ -51,20 +53,8 @@ sv::SvDBus dbus;
 
 SvWebServer webserver;
 
-const OptionStructList CmdOptions = {
-  {{CMD_START},  "Старт сервера", "", "", ""},
-  {{CMD_STOP},   "Останов сервера", "", "", ""},
-  {{CMD_RESTART},"Перезапуск сервера", "", "", ""},
-  {{CMD_STATUS}, "Состояние сервера", "", "", ""},
-  {{CMD_DEBUG},  "Режим отладки","", "", ""}
-};
-
 const OptionStructList AppOptions = {
-    {{CMD_START},  "Старт сервера", "", "", ""},
-    {{CMD_STOP},   "Останов сервера", "", "", ""},
-    {{CMD_RESTART},"Перезапуск сервера", "", "", ""},
-    {{CMD_STATUS}, "Состояние сервера", "", "", ""},
-    {{CMD_DEBUG},  "Режим отладки","", "", ""},
+    {{OPTION_DEBUG},  "Режим отладки","", "", ""},
     {{OPTION_CONFIG_FILE}, "Файл конфигурации сервера","config.json", "", ""},
     {{OPTION_DB_HOST}, "Адрес сервера базы данных.","localhost", "", ""},
     {{OPTION_DB_PORT}, "Порт сервера базы данных.", "5432", "", ""},
@@ -111,22 +101,53 @@ void closeDevices();
 void deinitStorages();
 void deleteSignals();
 
-QString GetPIDsByName(QString name)
+SvResult execute(const QString& command)
 {
-    FILE *fp;
-    char *cmd = (char*)malloc(200);
-    memset(cmd, 0, 200);
-//    sprintf(cmd, "pidof udevd", name.toStdString().c_str());
-    strcpy(cmd, QString("pidof %1").arg(name).toStdString().c_str());
-    fp = popen(cmd, "r");
-    fread(cmd, 1, 200, fp);
-    fclose(fp);
-    free(cmd);
+  QProcess p;
 
-    QString result = QString(cmd).trimmed();
-    qDebug() << result;
-    result.truncate(result.indexOf('\n'));
+  p.start(command, QIODevice::ReadOnly);
+
+  if(!p.waitForStarted())
+    return SvResult(SvResult::Error, p.errorString());
+
+  if(!p.waitForFinished())
+    return SvResult(SvResult::Error, p.errorString());
+
+  SvResult result = SvResult(SvResult::OK, QString(p.readAll()));
+
+  p.close();
+
+  return result;
+
+}
+
+QList<pid_t> get_pids_by_name(const QString& name, pid_t exclude = 0)
+{
+  QList<pid_t> result = QList<pid_t>();
+
+  SvResult e = execute(QString("ps -C %1 -o pid=").arg(name));
+
+  if(e.type != SvResult::OK)
+  {
+    qCritical() << e.text;
     return result;
+  }
+
+  QString pids = e.text;
+
+  bool ok;
+  for(QString pid: pids.split('\n'))
+  {
+    if(pid.trimmed().isEmpty())
+      continue;
+
+    quint64 upid = pid.toUInt(&ok);
+    if(ok && upid != exclude)
+      result.append(upid);
+
+  }
+
+  return result;
 }
 
 sv::log::sender me = sv::log::sender("main");
@@ -141,35 +162,43 @@ sv::log::MessageTypes mtinf = sv::log::mtInfo;
 sv::log::MessageTypes mtscc = sv::log::mtSuccess;
 sv::log::MessageTypes mtfal = sv::log::mtFail;
 
-bool parse_cmd(const QStringList& args, AppConfig &cfg)
+void parse_operation(const QStringList& args, AppConfig &cfg) throw (SvException)
 {
-  try {
-    /** разбираем параметры командной строки **/
-    SvCommandLineParser cmd_parser(CmdOptions);
+    /** разбираем операцию **/
+    SvCommandLineParser op_parser;
 
-    cmd_parser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
-    cmd_parser.addHelpOption();
+    op_parser.addPositionalArgument(APP_OPERATION, "Команда управления сервером", "operation (start|stop|status|restart)");
 
-    if (!cmd_parser.parse(args))
-      exception.raise(-1, QString("%1\n\n%2").arg(cmd_parser.errorText()).arg(cmd_parser.helpText()));
+    op_parser.addOptionStructList(AppOptions);
+    op_parser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
+    op_parser.addHelpOption();
+    op_parser.addVersionOption();
 
-    cfg.start =   cmd_parser.isSet(CMD_START);
-    cfg.stop =    cmd_parser.isSet(CMD_STOP);
-    cfg.restart = cmd_parser.isSet(CMD_RESTART);
-    cfg.status =  cmd_parser.isSet(CMD_STATUS);
-    cfg.debug =   cmd_parser.isSet(CMD_DEBUG);
+    if (!op_parser.parse(args))
+      throw SvException(QString("Ошибка разбора командной строки:\n\%1\n\n%2").arg(op_parser.errorText()).arg(op_parser.helpText()));
 
-    if (cmd_parser.isSetHelpOption() || !(cfg.start || cfg.stop || cfg.restart || cfg.status))
-      exception.raise(-1, cmd_parser.helpText());
+    if (op_parser.isSetVersionOption())
+      throw SvException(SvException::NoError, QString("Сервер сбора и обработки данных Widen v.%1\n").arg(APP_VERSION));
 
-    return true;
+    if (op_parser.isSetHelpOption())
+      throw SvException(op_parser.helpText());
 
-  }
-  catch(SvException& e)
-  {
-    qCritical() << e.error;
-    return false;
-  }
+
+    if(op_parser.positionalArguments().count())
+    {
+      QString op = op_parser.positionalArguments().at(0);
+
+      cfg.start =   op == QString(OPERATION_START);
+      cfg.stop =    op == QString(OPERATION_STOP);
+      cfg.restart = op == QString(OPERATION_RESTART);
+      cfg.status =  op == QString(OPERATION_STATUS);
+      cfg.twin =    op == QString(OPERATION_TWIN);
+    }
+    else
+      throw SvException("Не указана операция.\n\n" + op_parser.helpText());
+
+    cfg.debug = op_parser.isSet(OPTION_DEBUG);
+
 }
 
 bool parse_params(const QStringList& args, AppConfig &cfg, const QString& file_name)
@@ -184,6 +213,7 @@ bool parse_params(const QStringList& args, AppConfig &cfg, const QString& file_n
     /** разбираем параметры командной строки **/
     SvCommandLineParser cmd_parser(AppOptions);
 
+    cmd_parser.addPositionalArgument(APP_OPERATION, "Команда управления сервером", "operation start|stop|status|restart");
     cmd_parser.setSingleDashWordOptionMode(QCommandLineParser::ParseAsLongOptions);
     cmd_parser.setApplicationDescription(QString("\nСервер сбора и обработки данных КСУТС v.%1").arg(APP_VERSION));
     cmd_parser.addHelpOption();
@@ -316,6 +346,142 @@ bool parse_params(const QStringList& args, AppConfig &cfg, const QString& file_n
   }
 }
 
+int server_operate(const QStringList arguments, AppConfig& cfg)
+{
+  try {
+
+    parse_operation(arguments, cfg);
+
+    // свой pid
+    pid_t mypid = getpid();
+
+    QList<pid_t> pids = get_pids_by_name(qApp->applicationName(), mypid);
+//    qDebug() << "mypid" << mypid << "pids" << pids;
+
+    if(cfg.start)
+    {
+      if(pids.count() > 0)
+      {
+        std::cout << "Сервер уже запущен!\n";
+
+        for(pid_t pid: pids)
+          std::cout << QString("%1\n").arg(pid).toStdString();
+
+        return 1;
+
+      }
+
+      return 0;
+
+    }
+
+    if(cfg.twin)
+    {
+      // сюда попадаем после операции restart
+      if(pids.count() > 1)
+      {
+        std::cout << "Сервер уже запущен!\n";
+
+        for(pid_t pid: pids)
+          std::cout << QString("%1\n").arg(pid).toStdString();
+
+        return 1;
+
+      }
+
+      return 0;
+
+    }
+
+    else if(cfg.stop)
+      {
+        if(pids.count() == 0)
+           throw SvException("Сервер не запущен", 1);
+
+        for(pid_t pid: pids)
+        {
+          SvResult r = execute(QString("kill -SIGINT %1").arg(pids.at(0)));
+
+          if(r.type == SvResult::OK && r.text.isEmpty())
+            std::cout << QString("Сервер остановлен [%1]\n").arg(pid).toStdString();
+
+          else
+            throw SvException(r.text, -1);
+        }
+
+        return 1;
+
+      }
+
+    else if(cfg.status)
+      {
+        if(pids.count() == 0)
+           throw SvException("Сервер не запущен", 1);
+
+        for(pid_t pid: pids)
+        {
+          SvResult rs = execute(QString("ps -p %1 -o pid,start=\"Started\",etime=\"RunningTime\",sz=\"Memory\"").arg(pid));
+
+          if(rs.type == SvResult::OK)
+            std::cout << QString("Сервер запущен\n%1\n").arg(rs.text).toStdString();
+
+          else
+            throw SvException(rs.text, -1);
+
+        }
+
+        return 1;
+
+      }
+
+    else if(cfg.restart)
+      {
+        // останавливаем сервер(а)
+        if(pids.count() == 0)
+           std::cout << "Сервер не запущен, но сейчас запустим\n";
+
+        else {
+
+          for(pid_t pid: pids)
+          {
+            SvResult r = execute(QString("kill -SIGINT %1").arg(pids.at(0)));
+
+            if(r.type == SvResult::OK && r.text.isEmpty())
+              std::cout << QString("Сервер остановлен [%1]\n").arg(pid).toStdString();
+
+            else
+              throw SvException(r.text, -1);
+          }
+        }
+
+        // запускаем новый экземпляр
+        if(!QProcess::startDetached(QString("%1 twin").arg(qApp->applicationFilePath())))
+          throw SvException("Не удалось запустить сервер", -1);
+
+        // после запуска ждем немного чтоб ОС прочухалась
+        QThread::currentThread()->msleep(2000);
+
+        QList<pid_t> newpids = get_pids_by_name(qApp->applicationName(), mypid);
+
+        if(newpids.count() == 0)
+           throw SvException("Не удалось перезапустить сервер", -1);
+
+        throw SvException(QString("Сервер перезапущен [%1]").arg(newpids.at(0)), 1);
+
+      }
+
+    else
+      throw SvException("Неизвестная операция", -2);
+
+  }
+
+  catch(SvException &e) {
+    std::cout << e.error.toStdString() << "\n";
+    return e.code;
+  }
+
+}
+
 int main(int argc, char *argv[])
 {
   // запрос версии для монитора
@@ -324,84 +490,17 @@ int main(int argc, char *argv[])
     return 0;
   }
 
-#ifdef Q_OS_WIN32
-    QTextCodec::setCodecForLocale(QTextCodec::codecForName("IBM 866"));
-#else // Q_OS_LINUX
-    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
-#endif
-
+  QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
 
   QCoreApplication a(argc, argv);
 
   AppConfig cfg;
-  try {
 
-    if(!parse_cmd(a.arguments(), cfg))
-        throw SvException("Ошибка разбора командной строки");
+  // в случае если дана команда start, то возвращается 0. в других случаях не 0
+  int o = server_operate(a.arguments(), cfg);
 
-    // свой pid
-    pid_t mypid = getpid();
-
-    QStringList pids = GetPIDsByName(qApp->applicationName()).trimmed().split(' ');
-
-    if(cfg.start)
-    {
-      if(pids.count() > 1 && pids.contains(QString::number(mypid)))
-        throw SvException("Сервер уже запущен!");
-
-    }
-    else if(cfg.stop)
-      {
-        if((pids.count() == 1) && (pids.at(0) == QString::number(mypid)))
-           throw SvException("Сервер не запущен.");
-
-        for(QString pid: pids)
-        {
-          qDebug() << pids << QString("kill %1").arg(pid);
-          if(pid != QString::number(mypid))
-            system(QString("kill %1").arg(pid).toStdString().c_str());
-        }
-
-        throw SvException("Сервер остановлен.");
-
-      }
-    else if(cfg.status)
-      {
-        if((pids.count() == 1) && (pids.at(0) == QString::number(mypid)))
-           throw SvException("Сервер не запущен.");
-
-        QString status = "";
-        for(QString pid: pids)
-        {
-          if(pid != QString::number(mypid))
-          {
-            QDateTime dt = QDateTime::currentDateTime();
-            quint64 d = start_time.daysTo(dt);
-            quint64 h = start_time.addDays(d).secsTo(dt) / 3600;
-            quint64 m = start_time.addDays(d).addSecs(h * 3600).secsTo(dt) / 60;
-            quint64 s = start_time.addDays(d).addSecs(h * 3600).addSecs(m * 3600).secsTo(dt);
-
-            status.append(QString("pid: %1  запущен: %2  работает: %3 дн. %4 ч. %5 мин. %6 сек.")
-                          .arg(pid).arg(start_time.toString("dd.MM.yyyy hh:mm:ss"))
-                          .arg(d).arg(h).arg(m).arg(s));
-
-            throw SvException(status);
-          }
-        }
-      }
-
-  }
-
-  catch(SvException &e) {
-    qDebug() << e.error;
-    return e.code;
-  }
-
-
-  // запуск в режиме отладки с выводом в терминал
-//  bool debug = (argc > 1) && (QString(argv[1]).trimmed() == "-debug");
-
-
+  if(o)
+    return o;
 
   if(!cfg.debug)
   {
@@ -427,8 +526,6 @@ int main(int argc, char *argv[])
 
   // инициализируем dbus ПОСЛЕ запуска потомка
   dbus.init();
-
-//  AppConfig cfg;
 
   try {
 
@@ -510,7 +607,7 @@ int main(int argc, char *argv[])
     bool w = webserver.init(web_logger);
 
     if(w && cfg.debug)
-        qDebug() << "Сервер запущен!";
+        qDebug() << QString("Web сервер запущен на %1!").arg(80);
     else if(!w && cfg.debug)
         qDebug() << "Ошибка запуска web сервера!";
 
@@ -546,6 +643,8 @@ int main(int argc, char *argv[])
 void signal_handler(int sig)
 {
   Q_UNUSED(sig);
+
+  qDebug() << "closing";
 
   webserver.stop();
   delete web_logger;
