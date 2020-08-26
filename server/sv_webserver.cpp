@@ -183,8 +183,8 @@ void SvWebServer::readClient()
 
     QString answer;
     answer.append("HTTP/1.0 200 Ok\r\n")
-          .append("Content-Type: application/json; charset=\"utf-8\"\r\n")
-          .append(QString("Content-Length: %1\r\n").arg(answer.length() + 2))
+          .append("Content-Type: text/json; charset=\"utf-8\"\r\n")
+          .append(QString("Content-Length: %1\r\n").arg(json.length() + 2))
           .append("Access-Control-Allow-Origin: *\r\n")
           .append("Access-Control-Allow-Headers: *\r\n")
           .append("Origin: file://\r\n\r\n")        //! обязательно два!
@@ -193,11 +193,11 @@ void SvWebServer::readClient()
     replay << answer;
 //        << "HTTP/1.0 200 Ok\r\n"
 //           << "Content-Type: application/json; charset=\"utf-8\"\r\n"
-//           << QString("Content-Length: %1\r\n").arg(answer.length() + 2)
+//           << QString("Content-Length: %1\r\n").arg(json.length() + 2)
 //           << "Access-Control-Allow-Origin: *\r\n"
 //           << "Access-Control-Allow-Headers: *\r\n"
 //           << "Origin: file://\r\n\r\n" //! обязательно два!
-//           << "[" << answer << "]\n"; // формируем ответ в формате JSON
+//           << "[" << json << "]\n"; // формируем ответ в формате JSON
     if(m_logger && m_logger->options().log_level >= sv::log::llDebug2)
       *m_logger << sv::log::llDebug2 << sv::log::mtDebug << answer << sv::log::endl;
 

@@ -4,12 +4,8 @@
 ConningKongsberDevice::ConningKongsberDevice(sv::SvAbstractLogger *logger):
   ad::SvAbstractDevice(logger)
 {
-  D.clear();
-  A.clear();
-
-  signals_by_type.clear();
-  signals_by_type.insert("D", &D);
-  signals_by_type.insert("A", &A);
+  SignalsGEN.clear();
+  SignalsXDR.clear();
 }
 
 ConningKongsberDevice::~ConningKongsberDevice()
@@ -72,30 +68,13 @@ void ConningKongsberDevice::addSignal(SvSignal* signal) throw(SvException)
   ad::SvAbstractDevice::addSignal(signal);
 
   ckng::SignalParams p = ckng::SignalParams::fromSignal(signal);
-  if(signal->info()->type == "D")
-  {
-   if(D.contains(p.group * 16 + p.bit))
-     throw SvException(QString(S_IMPERMISSIBLE_VALUE)
-                       .arg(QString("(%1, %2)").arg(P_GROUP).arg(P_BIT))
-                       .arg(QString("%1, %2").arg(p.group).arg(p.bit))
-                       .arg(QString("Сигнал %1: значение сдвига %1*16+%2=%3 уже задано для другого сигнала")
-                            .arg(signal->info()->name).arg(P_GROUP).arg(P_BIT).arg(p.group*16+p.bit)));
 
-    D.insert(p.group * 16 + p.bit, signal->info()->name);
+  if(signal->info()->type == "GEN")
+    SignalsGEN.insert(p.group * 16 + p.word, signal->info()->name);
 
-  }
-  else if(signal->info()->type == "A")
-  {
-    if(A.contains(p.group * 16 + p.bit))
-      throw SvException(QString(S_IMPERMISSIBLE_VALUE)
-                        .arg(QString("(%1, %2)").arg(P_GROUP).arg(P_BIT))
-                        .arg(QString("%1, %2").arg(p.group).arg(p.bit))
-                        .arg(QString("Сигнал %1: значение сдвига %1*16+%2=%3 уже задано для другого сигнала")
-                             .arg(signal->info()->name).arg(P_GROUP).arg(P_BIT).arg(p.group*16+p.bit)));
+  else if(signal->info()->type == "XDR")
+    SignalsXDR.insert(p.group * 16 + p.word, signal->info()->name);
 
-    A.insert(p.group * 16 + p.bit, signal->info()->name);
-
-  }
 }
 
 bool ConningKongsberDevice::open()
@@ -158,7 +137,7 @@ void ConningKongsberDevice::create_new_thread() throw(SvException)
 
     }
 
-    static_cast<ConningKongsberGenericThread*>(p_thread)->setSignalsMap(&signals_by_type);
+    static_cast<ConningKongsberGenericThread*>(p_thread)->setSignalsMap(&SignalsGEN, &SignalsXDR);
 
   }
 
@@ -456,9 +435,12 @@ void ConningKongsberTestThread::stop()
 
 
 /** **** GENERIC FUNCTIONS **** **/
-void ConningKongsberGenericThread::setSignalsMap(ckng::SignalsByTypeMap *sbt)
+void ConningKongsberGenericThread::setSignalsMap(ckng::SignalsMap *smapGEN, ckng::SignalsMap *smapXDR)
 {
-  signals_by_type = sbt;
+  SignalsGEN = smapGEN;
+  SignalsXDR = smapXDR;
+
+//  signals_by_reference = smap;
 //  return sv::log::sender::make(p_logger->options().log_sender_name_format,
 //                               p_info.name,
 //                               p_info.index);
@@ -472,10 +454,10 @@ void ConningKongsberGenericThread::process_data()
   {
 
     /* если в строке есть заголовок */
-    if(current_message.startsWith(p_header))
+    if(m_re_header.match(current_message.left(8)).hasMatch())
     {
       /* и есть конец (контр. сумма), значит эта строка содержит полное сообщение. парсим */
-      if(m_tail.match(current_message.right(3)).hasMatch())
+      if(m_re_tail.match(current_message.right(3)).hasMatch())
 
         parseNlog(current_message);
 
@@ -488,7 +470,7 @@ void ConningKongsberGenericThread::process_data()
 
     /* если текущее сообщение не содержит заголовка, но содержит 'контр. сумму',
      * тогда, если 'голова' не пустая, крепим этот 'хвост' к 'голове' */
-    else if(m_tail.match(current_message.right(3)).hasMatch())
+    else if(m_re_tail.match(current_message.right(3)).hasMatch())
     {
       if(!m_head.isEmpty())
       {
@@ -517,12 +499,16 @@ void ConningKongsberGenericThread::process_data()
 
 }
 
-void ConningKongsberGenericThread::parseNlog(QString message)
+void ConningKongsberGenericThread::parseNlog(const QString& message)
 {
   m_head = "";
 
-  if(!(message.startsWith(p_header) && m_tail.match(message.right(3)).hasMatch()))
+  QRegularExpressionMatch match = m_re_full.match(message);
+  if(!match.hasMatch())
     return;
+
+//  if(!(m_re_header.match(message.left(8)).hasMatch() && m_re_tail.match(message.right(3)).hasMatch()))
+//    return;
 
   if(p_logger)
     *p_logger << sv::log::mtDebug << sv::log::llDebug << sv::log::TimeZZZ
@@ -532,55 +518,79 @@ void ConningKongsberGenericThread::parseNlog(QString message)
   // в порядке и задаем новую контрольную точку времени для данного устройства
   p_device->setNewLostEpoch();
 
+
+  // тип сообщения
+  if(match.captured(0) == "XDR")
+    parse_XDR(message);
+
+  else if(match.captured(0) == "GEN")
+    parse_GEN(message);
+
+}
+
+void ConningKongsberGenericThread::parse_GEN(const QString& message)
+{
+//  auto set { [=](int type) -> void {  } };
+
   // определяем код поступившего сообщения
+  QRegularExpressionMatch match = m_re_GEN.match(message);
+  if(!match.hasMatch())
+    return;
+
   bool ok;
-  QString type;
 
-  int reference = message.mid(p_header.length(), 1).toInt(&ok);
-
+  quint16 reference = match.captured("reference").toUInt(&ok, 16);
   if(!ok) return;
 
-  switch (reference) {
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-      type = "D";
-      break;
+  quint16 vdr = match.captured("VDR").toUInt(&ok, 16);
+  if(!ok) return;
 
-    case 5:
-    case 6:
-    case 7:
-      type = "A";
-      break;
-
-    default:
-      return;
-  }
-
-  // проходим по списку полученных значений
-  QList<QString> l = message.mid(p_header.length() + 2, message.indexOf(m_tail) - p_header.length() + 2).split(',');
-
-  for(int i = 0; i < l.count(); ++i)
+  for(int i = 0; i < 16; ++i)
   {
     // находим сигнал
-    ckng::SignalByOffsetMap* sbo = signals_by_type->value(type);
-
-    if(!sbo->contains(reference * 16 + i))
+    if(!SignalsGEN->contains(reference * 16 + i))
       return;
 
-    QString signal_name = sbo->value(reference * 16 + i);
-    // определяем значение
-    qreal r = l.at(i).trimmed().toDouble(&ok);
+    QString signal_name = SignalsGEN->value(reference * 16 + i);
 
-    if(!ok || l.at(i).trimmed().isEmpty())
-      p_device->setSignalValue(signal_name, p_device->Signals()->value(signal_name)->info()->timeout_value);
+//    // определяем значение
+//    qreal r = vdr.toDouble(&ok);
 
-    else
-      p_device->setSignalValue(signal_name, r);
+//    if(!ok || l.at(i).trimmed().isEmpty())
+//      p_device->setSignalValue(signal_name, p_device->Signals()->value(signal_name)->info()->timeout_value);
+
+//    else
+      p_device->setSignalValue(signal_name, ((vdr >> i) & 1));
 
   }
 }
+
+void ConningKongsberGenericThread::parse_XDR(const QString& message)
+{
+  // определяем код поступившего сообщения
+  QRegularExpressionMatch match = m_re_XDR.match(message);
+  if(!match.hasMatch())
+    return;
+
+  bool ok;
+  quint16 reference = match.captured("reference").toUInt(&ok, 16);
+  if(!ok) return;
+
+  for(int i = 0; i < m_re_XDR.captureCount(); i++)
+  {
+    if(!SignalsXDR->contains(reference * 16 + i))
+      continue;
+
+    QString signal_name = SignalsXDR->value(reference * 16+ i);
+
+    qreal v = match.captured(i).toDouble(&ok);
+    p_device->setSignalValue(signal_name, ok ? v: p_device->Signals()->value(signal_name)->info()->timeout_value);
+
+
+  }
+
+}
+
 
 QByteArray ConningKongsberGenericThread::confirmation()
 {

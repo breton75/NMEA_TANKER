@@ -7,7 +7,7 @@ MainWindow::MainWindow(const AppConfig &cfg, QWidget *parent) :
 {
   ui->setupUi(this);
 
-  ui->textLog->document()->setMaximumBlockCount(2000);
+  ui->textLog->document()->setMaximumBlockCount(10000);
   log.setTextEdit(ui->textLog);
 
   _config =  cfg;

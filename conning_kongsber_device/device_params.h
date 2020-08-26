@@ -11,8 +11,9 @@
 #define RESET_INTERVAL  10
 
 // имена параметров устройства
-#define P_TALKER  "talker"
-#define P_NAME    "name"
+//#define P_HEADER  "header"
+//#define P_TALKER  "talker"
+//#define P_NAME    "name"
 #define P_RESET_TIMEOUT   "reset_timeout"
 
 #define DEV_IMPERMISSIBLE_VALUE "Недопустимое значение параметра \"%1\": %2.\n%3"
@@ -22,8 +23,8 @@
 
   struct DeviceParams {
 
-    QString   talker = "II";
-    QString   name   = "XDR";
+//    QString   header = "[$]II[XDR|GEN],[0-9]";
+//    QString   name   = "XDR";
     quint16   reset_timeout = RESET_INTERVAL;
 
     bool isValid = true;
@@ -50,27 +51,28 @@
     {
       DeviceParams p;
 
-      if(object.contains(P_TALKER)) {
+//      Qstring P = P_HEADER;
+//      if(object.contains(P)) {
 
-        if(object.value(P_TALKER).toString("").isEmpty())
-          throw SvException(QString(DEV_IMPERMISSIBLE_VALUE)
-                            .arg(P_TALKER).arg(object.value(P_TALKER).toVariant().toString())
-                            .arg("Код отправителя не может быть пустым"));
+//        if(object.value(P).toString("").isEmpty())
+//          throw SvException(QString(DEV_IMPERMISSIBLE_VALUE)
+//                            .arg(P).arg(object.value(P).toVariant().toString())
+//                            .arg("Шаблон заголовка сообщения не может быть пустым"));
 
-        p.talker = object.value(P_TALKER).toString("");
+//        p.header = object.value(P).toString("");
 
-      }
+//      }
 
-      if(object.contains(P_NAME)) {
+//      if(object.contains(P_NAME)) {
 
-        if(object.value(P_NAME).toString("").isEmpty())
-          throw SvException(QString(DEV_IMPERMISSIBLE_VALUE)
-                            .arg(P_NAME).arg(object.value(P_NAME).toVariant().toString())
-                            .arg("Имя отправителя не может быть пустым"));
+//        if(object.value(P_NAME).toString("").isEmpty())
+//          throw SvException(QString(DEV_IMPERMISSIBLE_VALUE)
+//                            .arg(P_NAME).arg(object.value(P_NAME).toVariant().toString())
+//                            .arg("Имя отправителя не может быть пустым"));
 
-        p.talker = object.value(P_TALKER).toString("");
+//        p.talker = object.value(P_TALKER).toString("");
 
-      }
+//      }
 
       if(object.contains(P_RESET_TIMEOUT)) {
 
@@ -103,8 +105,8 @@
     {
       QJsonObject j;
 
-      j.insert(P_TALKER, QJsonValue(talker).toString());
-      j.insert(P_NAME, QJsonValue(name).toString());
+//      j.insert(P_HEADER, QJsonValue(header).toString());
+//      j.insert(P_NAME, QJsonValue(name).toString());
       j.insert(P_RESET_TIMEOUT, QJsonValue(reset_timeout));
 
       return j;

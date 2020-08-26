@@ -40,8 +40,10 @@ namespace ckng {
   };
   #pragma pack(pop)
 
-  typedef QMap<int, QString> SignalByOffsetMap;
-  typedef QMap<QString, SignalByOffsetMap*> SignalsByTypeMap;
+  typedef QMap<int, QString> SignalsMap;
+
+//  typedef QMap<int, QString> SignalsGEN;
+//  typedef QMap<int, QString> SignalsXDR;
 
   bool parse_signal(SvSignal* signal);
 
@@ -81,10 +83,8 @@ public:
 
 private:
 
-  ckng::SignalByOffsetMap D;
-  ckng::SignalByOffsetMap A;
-
-  ckng::SignalsByTypeMap signals_by_type;
+  ckng::SignalsMap SignalsGEN;
+  ckng::SignalsMap SignalsXDR;
 
   bool is_configured = false;
 
@@ -105,29 +105,46 @@ public:
     ad::SvAbstractDeviceThread(device, logger),
     m_head(QString())
   {
-    p_header = QString("$%1%2,").arg(dev_params.talker).arg(dev_params.name);
-    m_tail.setPattern("[*][0-9a-fA-F][0-9a-fA-F]");
+    m_re_header.setPattern("[$]II[XDR|GEN],");
+    m_re_tail.setPattern("[*][0-9a-fA-F][0-9a-fA-F]");
+    m_re_full.setPattern("[$]II([XDR|GEN]),\\d+,[\\w\\d., ][*]\\d\\d");
+
+    m_re_XDR.setPattern("[$]IIXDR,(?<reference>\\d),"
+                             "(?<VDR1>[0-9. ]),(?<VDR2>[0-9. ]),(?<VDR3>[0-9. ]),(?<VDR4>[0-9. ]),"
+                             "(?<VDR5>[0-9. ]),(?<VDR6>[0-9. ]),(?<VDR7>[0-9. ]),(?<VDR8>[0-9. ]),"
+                             "(?<VDR9>[0-9. ]),(?<VDR10>[0-9. ]),(?<VDR11>[0-9. ]),(?<VDR12>[0-9. ]),"
+                             "(?<VDR13>[0-9. ]),(?<VDR14>[0-9. ]),(?<VDR15>[0-9. ])[*]\\d\\d");
+
+    m_re_GEN.setPattern("[$]IIGEN,(\\d\\d\\d\\d),(?<V>[0-9. ]),(?<VDR>[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[*]\\d\\d");
   }
 
-  void setSignalsMap(ckng::SignalsByTypeMap *sbt);
+  void setSignalsMap(ckng::SignalsMap *smapGEN, ckng::SignalsMap *smapXDR);
 
 protected:
   DeviceParams dev_params;
 
-  QString p_header;
   size_t hsz = sizeof(ckng::Header);
 
-  ckng::SignalsByTypeMap* signals_by_type;
+  ckng::SignalsMap* SignalsGEN;
+  ckng::SignalsMap* SignalsXDR;
 
 
   void process_data();
 
 private:
 //  QString m_current_message;
-  QString m_head;
-  QRegularExpression m_tail; // = QRegularExpression("/wds/");
+  QRegularExpression m_re_full;
+  QRegularExpression m_re_XDR;
+  QRegularExpression m_re_GEN;
+  QRegularExpression m_re_header;
+  QRegularExpression m_re_tail; // = QRegularExpression("/wds/");
 
-  void parseNlog(QString message);
+  QString m_head;
+
+  void parseNlog(const QString &message);
+  void parse_GEN(const QString& message);
+  void parse_XDR(const QString& message);
+
   QByteArray confirmation();
 
 

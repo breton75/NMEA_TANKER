@@ -9,7 +9,7 @@
 #include "../global/sv_signal.h"
 
 #define P_GROUP "group"
-#define P_BIT   "bit"
+#define P_WORD  "word"
 #define P_TAG   "tag"
 
 #define S_IMPERMISSIBLE_VALUE "Недопустимое значение параметра %1: %2.\n%3"
@@ -20,7 +20,7 @@ namespace  ckng {
   struct SignalParams {
 
     int group;
-    int bit;
+    int word;
     QString tag;
 
     static SignalParams fromSignal(SvSignal* signal) throw (SvException)
@@ -81,18 +81,18 @@ namespace  ckng {
 
 
       /** bit **/
-      if(object.contains(P_BIT)) {
+      if(object.contains(P_WORD)) {
 
-        if(object.value(P_BIT).toInt(-1) < 0)
+        if(object.value(P_WORD).toInt(-1) < 0)
           throw SvException(QString(S_IMPERMISSIBLE_VALUE)
-                            .arg(P_BIT)
-                            .arg(object.value(P_BIT).toVariant().toString())
+                            .arg(P_WORD)
+                            .arg(object.value(P_WORD).toVariant().toString())
                             .arg("Допустимы числовые значения больше 0"));
 
-        p.bit = object.value(P_BIT).toInt(-1);
+        p.word = object.value(P_WORD).toInt(-1);
       }
       else
-        throw SvException(QString(S_NO_PARAM).arg(P_BIT));
+        throw SvException(QString(S_NO_PARAM).arg(P_WORD));
 
 
       return p;
@@ -113,7 +113,7 @@ namespace  ckng {
       QJsonObject j;
 
       j.insert(P_TAG,   QJsonValue(static_cast<int>(group)).toInt());
-      j.insert(P_BIT,   QJsonValue(static_cast<int>(bit)).toInt());
+      j.insert(P_WORD,   QJsonValue(static_cast<int>(word)).toInt());
       j.insert(P_GROUP, QJsonValue(tag).toString());
 
       return j;
