@@ -11,7 +11,7 @@
 #define RESET_INTERVAL  10
 
 // имена параметров устройства
-//#define P_HEADER  "header"
+#define P_HEADER  "header"
 //#define P_TALKER  "talker"
 //#define P_NAME    "name"
 #define P_RESET_TIMEOUT   "reset_timeout"
@@ -23,7 +23,7 @@
 
   struct DeviceParams {
 
-//    QString   header = "[$]II[XDR|GEN],[0-9]";
+//    QString   header = "[$]II(XDR|GEN),";
 //    QString   name   = "XDR";
     quint16   reset_timeout = RESET_INTERVAL;
 
@@ -51,7 +51,7 @@
     {
       DeviceParams p;
 
-//      Qstring P = P_HEADER;
+//      QString P = P_HEADER;
 //      if(object.contains(P)) {
 
 //        if(object.value(P).toString("").isEmpty())

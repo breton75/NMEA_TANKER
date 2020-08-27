@@ -452,12 +452,11 @@ void ConningKongsberGenericThread::process_data()
 
   for(QString current_message: l) //int i = 0; i < l.count(); ++i)
   {
-
     /* если в строке есть заголовок */
-    if(m_re_header.match(current_message.left(8)).hasMatch())
+    if(m_re_header.match(current_message).hasMatch())
     {
       /* и есть конец (контр. сумма), значит эта строка содержит полное сообщение. парсим */
-      if(m_re_tail.match(current_message.right(3)).hasMatch())
+      if(m_re_tail.match(current_message).hasMatch())
 
         parseNlog(current_message);
 
@@ -470,7 +469,7 @@ void ConningKongsberGenericThread::process_data()
 
     /* если текущее сообщение не содержит заголовка, но содержит 'контр. сумму',
      * тогда, если 'голова' не пустая, крепим этот 'хвост' к 'голове' */
-    else if(m_re_tail.match(current_message.right(3)).hasMatch())
+    else if(m_re_tail.match(current_message).hasMatch())
     {
       if(!m_head.isEmpty())
       {
@@ -507,9 +506,6 @@ void ConningKongsberGenericThread::parseNlog(const QString& message)
   if(!match.hasMatch())
     return;
 
-//  if(!(m_re_header.match(message.left(8)).hasMatch() && m_re_tail.match(message.right(3)).hasMatch()))
-//    return;
-
   if(p_logger)
     *p_logger << sv::log::mtDebug << sv::log::llDebug << sv::log::TimeZZZ
               << sv::log::in << message << sv::log::endl;
@@ -520,10 +516,10 @@ void ConningKongsberGenericThread::parseNlog(const QString& message)
 
 
   // тип сообщения
-  if(match.captured(0) == "XDR")
+  if(match.captured("name") == "XDR")
     parse_XDR(message);
 
-  else if(match.captured(0) == "GEN")
+  else if(match.captured("name") == "GEN")
     parse_GEN(message);
 
 }
@@ -539,28 +535,21 @@ void ConningKongsberGenericThread::parse_GEN(const QString& message)
 
   bool ok;
 
-  quint16 reference = match.captured("reference").toUInt(&ok, 16);
+  quint16 type = match.captured("type").toUInt(&ok, 16);
   if(!ok) return;
 
-  quint16 vdr = match.captured("VDR").toUInt(&ok, 16);
+  quint16 data = match.captured("data").toUInt(&ok, 16);
   if(!ok) return;
 
   for(int i = 0; i < 16; ++i)
   {
     // находим сигнал
-    if(!SignalsGEN->contains(reference * 16 + i))
+    if(!SignalsGEN->contains(type * 16 + i))
       return;
 
-    QString signal_name = SignalsGEN->value(reference * 16 + i);
+    QString signal_name = SignalsGEN->value(type * 16 + i);
 
-//    // определяем значение
-//    qreal r = vdr.toDouble(&ok);
-
-//    if(!ok || l.at(i).trimmed().isEmpty())
-//      p_device->setSignalValue(signal_name, p_device->Signals()->value(signal_name)->info()->timeout_value);
-
-//    else
-      p_device->setSignalValue(signal_name, ((vdr >> i) & 1));
+    p_device->setSignalValue(signal_name, ((data >> i) & 1));
 
   }
 }
@@ -573,18 +562,18 @@ void ConningKongsberGenericThread::parse_XDR(const QString& message)
     return;
 
   bool ok;
-  quint16 reference = match.captured("reference").toUInt(&ok, 16);
+  quint16 type = match.captured("type").toUInt(&ok, 16);
   if(!ok) return;
 
-  for(int i = 0; i < m_re_XDR.captureCount(); i++)
+  for(int i = 0; i < 16; i++)
   {
-    if(!SignalsXDR->contains(reference * 16 + i))
+//    *p_logger << "xdr" << type << i << (SignalsXDR->contains(type * 16 + i) ? "contains" : "no") << sv::log::endl;
+    if(!SignalsXDR->contains(type * 16 + i))
       continue;
 
-    QString signal_name = SignalsXDR->value(reference * 16+ i);
-
-    qreal v = match.captured(i).toDouble(&ok);
-    p_device->setSignalValue(signal_name, ok ? v: p_device->Signals()->value(signal_name)->info()->timeout_value);
+    QString signal_name = SignalsXDR->value(type * 16 + i);
+    qreal a = match.captured(QString("a%1").arg(i + 1)).toDouble(&ok); // captured(0) содержит саму строку
+    p_device->setSignalValue(signal_name, ok ? a: p_device->Signals()->value(signal_name)->info()->timeout_value);
 
 
   }

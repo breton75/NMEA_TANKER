@@ -105,17 +105,17 @@ public:
     ad::SvAbstractDeviceThread(device, logger),
     m_head(QString())
   {
-    m_re_header.setPattern("[$]II[XDR|GEN],");
-    m_re_tail.setPattern("[*][0-9a-fA-F][0-9a-fA-F]");
-    m_re_full.setPattern("[$]II([XDR|GEN]),\\d+,[\\w\\d., ][*]\\d\\d");
+    m_re_header.setPattern("[$]II(XDR|GEN)[, ]+");
+    m_re_tail.setPattern("[*][0-9a-fA-F]{2}");
+    m_re_full.setPattern("[$]II(?<name>XDR|GEN)[, ]+\\d+[, ]+[\\w+\\d+., ]+[*](?<crc>[0-9a-fA-F]{2})");
 
-    m_re_XDR.setPattern("[$]IIXDR,(?<reference>\\d),"
-                             "(?<VDR1>[0-9. ]),(?<VDR2>[0-9. ]),(?<VDR3>[0-9. ]),(?<VDR4>[0-9. ]),"
-                             "(?<VDR5>[0-9. ]),(?<VDR6>[0-9. ]),(?<VDR7>[0-9. ]),(?<VDR8>[0-9. ]),"
-                             "(?<VDR9>[0-9. ]),(?<VDR10>[0-9. ]),(?<VDR11>[0-9. ]),(?<VDR12>[0-9. ]),"
-                             "(?<VDR13>[0-9. ]),(?<VDR14>[0-9. ]),(?<VDR15>[0-9. ])[*]\\d\\d");
+    m_re_XDR.setPattern("[$]IIXDR,(?<type>\\d),"
+                             "(?<a1>[0-9. ]+)[, ]+(?<a2>[0-9. ]+)[, ]+(?<a3>[0-9. ]+)[, ]+(?<a4>[0-9. ]+)[, ]+"
+                             "(?<a5>[0-9. ]+)[, ]+(?<a6>[0-9. ]+)[, ]+(?<a7>[0-9. ]+)[, ]+(?<a8>[0-9. ]+)[, ]+"
+                             "(?<a9>[0-9. ]+)[, ]+(?<a10>[0-9. ]+)[, ]+(?<a11>[0-9. ]+)[, ]+(?<a12>[0-9. ]+)[, ]+"
+                             "(?<a13>[0-9. ]+)[, ]+(?<a14>[0-9. ]+)[, ]+(?<a15>[0-9. ]+)[*](?<crc>[0-9a-zA-Z]{2})");
 
-    m_re_GEN.setPattern("[$]IIGEN,(\\d\\d\\d\\d),(?<V>[0-9. ]),(?<VDR>[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])[*]\\d\\d");
+    m_re_GEN.setPattern("[$]IIGEN[, ]+(?<type>\\d{4})[, ]+(?<val>[0-9. ]+)[, ]+(?<data>[0-9a-zA-Z]{4})[*](?<crc>[0-9a-zA-Z]{2})");
   }
 
   void setSignalsMap(ckng::SignalsMap *smapGEN, ckng::SignalsMap *smapXDR);

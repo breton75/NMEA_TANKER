@@ -27,6 +27,7 @@ namespace  ckng {
     {
       try
       {
+
         return SignalParams::fromJsonString(signal->info()->params);
       }
       catch(SvException& e)
@@ -80,7 +81,7 @@ namespace  ckng {
         throw SvException(QString(S_NO_PARAM).arg(P_GROUP));
 
 
-      /** bit **/
+      /** word **/
       if(object.contains(P_WORD)) {
 
         if(object.value(P_WORD).toInt(-1) < 0)
