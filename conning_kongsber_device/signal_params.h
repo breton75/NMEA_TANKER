@@ -28,11 +28,11 @@ namespace  ckng {
       try
       {
 
-        return SignalParams::fromJsonString(signal->info()->params);
+        return SignalParams::fromJsonString(signal->config()->params);
       }
       catch(SvException& e)
       {
-        throw SvException(QString("Сигнал %1: %2").arg(signal->info()->name).arg(e.error));
+        throw SvException(QString("Сигнал %1: %2").arg(signal->config()->name).arg(e.error));
       }
     }
 

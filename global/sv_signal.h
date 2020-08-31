@@ -14,32 +14,32 @@
 
 #include "../../svlib/sv_exception.h"
 
-#define SIGINFO_IMPERMISSIBLE_VALUE "Недопустимое значение параметра %1: %2.\n%3"
-#define SIGINFO_NO_PARAM  "В разделе \"devices\" отсутствует или не задан обязательный параметр \"%1\""
+#define SIG_IMPERMISSIBLE_VALUE "Недопустимое значение параметра %1: %2.\n%3"
+#define SIG_NO_PARAM  "В разделе \"signals\" отсутствует или не задан обязательный параметр \"%1\""
 
 enum SignalDataTypes {
   dtInt = 0,
   dtFloat
 };
 
-struct SignalInfo
+struct SignalConfig
 {
-  SignalInfo() { }
+  SignalConfig() { }
   
   int         id = -1;
   QString     name = "";
   int         device_id = -1;
   QList<int>  storages;
+  QString     params = "";
   QString     type = "";
   bool        active = false;
   QString     description = "";
   int         timeout = 3000;
   int         timeout_value = -3;
   int         timeout_signal_id = -1;
-  QString     params = "";
   QString     comment = "";
 
-  static SignalInfo fromJsonString(const QString& json_string) throw (SvException)
+  static SignalConfig fromJsonString(const QString& json_string) throw (SvException)
   {
     QJsonParseError err;
     QJsonDocument jd = QJsonDocument::fromJson(json_string.toUtf8(), &err);
@@ -48,31 +48,33 @@ struct SignalInfo
       throw SvException(err.errorString());
 
     try {
+
       return fromJsonObject(jd.object());
+
     }
     catch(SvException e) {
       throw e;
     }
   }
 
-  static SignalInfo fromJsonObject(const QJsonObject &object) throw (SvException)
+  static SignalConfig fromJsonObject(const QJsonObject &object) throw (SvException)
   {
     // проверяем наличие основных полей
     QStringList l = QStringList() << P_ID << P_NAME << P_TYPE << P_DEVICE
                                   << P_TIMEOUT << P_TIMEOUT_VALUE;
     for(QString v: l)
       if(object.value(v).isUndefined())
-        throw SvException(QString(SIGINFO_NO_PARAM).arg(v));
+        throw SvException(QString(SIG_NO_PARAM).arg(v));
 
     QString P;
-    SignalInfo p;
+    SignalConfig p;
 
     /* id */
     P = P_ID;
     if(object.contains(P))
     {
       if(object.value(P).toInt(-1) == -1)
-        throw SvException(QString(SIGINFO_IMPERMISSIBLE_VALUE)
+        throw SvException(QString(SIG_IMPERMISSIBLE_VALUE)
                                .arg(P)
                                .arg(object.value(P).toVariant().toString())
                                .arg("У каждого сигнала должен быть свой уникальный номер"));
@@ -80,7 +82,7 @@ struct SignalInfo
       p.id = object.value(P).toInt(-1);
 
     }
-    else throw SvException(QString(SIGINFO_NO_PARAM).arg(P));
+    else throw SvException(QString(SIG_NO_PARAM).arg(P));
 
 
     /* name */
@@ -88,7 +90,7 @@ struct SignalInfo
     if(object.contains(P)) {
 
       if(object.value(P).toString("").isEmpty())
-        throw SvException(QString(SIGINFO_IMPERMISSIBLE_VALUE)
+        throw SvException(QString(SIG_IMPERMISSIBLE_VALUE)
                           .arg(P)
                           .arg(object.value(P).toVariant().toString())
                           .arg("Имя сигнала не может быть пустым и должно быть заключено в двойные кавычки"));
@@ -96,14 +98,14 @@ struct SignalInfo
       p.name = object.value(P).toString("");
 
     }
-    else throw SvException(QString(SIGINFO_NO_PARAM).arg(P));
+    else throw SvException(QString(SIG_NO_PARAM).arg(P));
 
     /* device */
     P = P_DEVICE;
     if(object.contains(P))
     {
       if(object.value(P).toInt(-1) < 1)
-        throw SvException(QString(SIGINFO_IMPERMISSIBLE_VALUE)
+        throw SvException(QString(SIG_IMPERMISSIBLE_VALUE)
                                .arg(P)
                                .arg(object.value(P).toVariant().toString())
                                .arg(QString("%1. Неверно указан ID устройства, к которому относится сигнал.").arg(p.name)));
@@ -111,7 +113,7 @@ struct SignalInfo
       p.device_id = object.value(P).toInt(-1);
 
     }
-    else throw SvException(QString(SIGINFO_NO_PARAM).arg(P));
+    else throw SvException(QString(SIG_NO_PARAM).arg(P));
 
     /* storages */
     P = P_STORAGES;
@@ -123,7 +125,7 @@ struct SignalInfo
       {
         int s = v.toInt(-1);
         if(s < 0)
-          throw SvException(QString(SIGINFO_IMPERMISSIBLE_VALUE)
+          throw SvException(QString(SIG_IMPERMISSIBLE_VALUE)
                                  .arg(P)
                                  .arg(object.value(P).toVariant().toString())
                                  .arg(QString("%1. Неверно указан ID хранилища, к которому относится сигнал.").arg(p.name)));
@@ -148,7 +150,7 @@ struct SignalInfo
     if(object.contains(P)) {
 
       if(object.value(P).toString("").isEmpty())
-        throw SvException(QString(SIGINFO_IMPERMISSIBLE_VALUE)
+        throw SvException(QString(SIG_IMPERMISSIBLE_VALUE)
                           .arg(P)
                           .arg(object.value(P).toVariant().toString())
                           .arg(QString("%1. Тип сигнала не может быть пустым и должен быть заключен в двойные кавычки").arg(p.name)));
@@ -156,24 +158,14 @@ struct SignalInfo
       p.type = object.value(P).toString("");
 
     }
-    else throw SvException(QString(SIGINFO_NO_PARAM).arg(P));
-
-
-    /* params */
-    P = P_PARAMS;
-    if(object.contains(P)) {
-
-      p.params = QString(QJsonDocument(object.value(P).toObject()).toJson(QJsonDocument::Compact));
-
-    }
-    else p.params = "\"{ }\"";
+    else throw SvException(QString(SIG_NO_PARAM).arg(P));
 
     /* timeout*/
     P = P_TIMEOUT;
     if(object.contains(P))
     {
       if(object.value(P).toInt(-1) < 1)
-        throw SvException(QString(SIGINFO_IMPERMISSIBLE_VALUE)
+        throw SvException(QString(SIG_IMPERMISSIBLE_VALUE)
                                .arg(P)
                                .arg(object.value(P).toVariant().toString())
                                .arg(QString("%1. Таймаут не может быть меньше 1 мсек.").arg(p.name)));
@@ -183,41 +175,26 @@ struct SignalInfo
     }
     else p.timeout = 3000;
 
+
+    /* params */
+    P = P_PARAMS;
+    p.params = object.contains(P) ? QString(QJsonDocument(object.value(P).toObject()).toJson(QJsonDocument::Compact)) : "\"{ }\"";
+
     /* timeout_value */
     P = P_TIMEOUT_VALUE;
-    if(object.contains(P))
-    {
-      p.timeout_value = object.value(P).toInt(-1);
-
-    }
-    else p.timeout_value = -1;
+    p.timeout_value = object.contains(P) ? object.value(P).toInt(-1) : -1;
 
     /* timeout_signal_id */
     P = P_TIMEOUT_SIGNAL_ID;
-    if(object.contains(P))
-    {
-      p.timeout_signal_id = object.value(P).toInt(-1);
-
-    }
-    else p.timeout_signal_id = -1;
+    p.timeout_signal_id = object.contains(P) ? object.value(P).toInt(-1) : -1;
 
     /* description */
     P = P_DESCRIPTION;
-    if(object.contains(P)) {
-
-      p.description = object.value(P).toString("");
-
-    }
-    else p.description = "";
+    p.description = object.contains(P) ? object.value(P).toString("") : "";
 
     /* comment */
     P = P_COMMENT;
-    if(object.contains(P)) {
-
-      p.comment = object.value(P).toString("");
-
-    }
-    else p.comment = "";
+    p.comment = object.contains(P) ? object.value(P).toString("") : "";
 
 
     return p;
@@ -263,41 +240,42 @@ class SvSignal: public QObject
   Q_OBJECT
   
 public:
-  explicit SvSignal(SignalInfo& info);
+  explicit SvSignal(SignalConfig& config);
   ~SvSignal();
   
-  int id() { return p_info.id; }
+  int id() { return p_config.id; }
   
-  void setup(const SignalInfo& info) { p_info = info; }
-  const SignalInfo* info() { return &p_info; }
+  void configure(const SignalConfig& config) { p_config = config; }
+  const SignalConfig* config() const         { return &p_config; }
   
   quint64   lostEpoch()  const { return p_lost_epoch; }
   QDateTime lastUpdate() const { return p_last_update; }
 
   qreal value() const { return p_value; }
-  bool isAlive() { return p_lost_epoch > quint64(QDateTime::currentMSecsSinceEpoch()); }
 
   void setDeviceLostEpoch(const quint64 lost_epoch) { p_device_lost_epoch = lost_epoch; }
-  bool isDeviceAlive() { return p_device_lost_epoch > quint64(QDateTime::currentMSecsSinceEpoch()); }
+
+  bool isAlive()        { return p_lost_epoch > quint64(QDateTime::currentMSecsSinceEpoch()); }
+  bool isDeviceAlive()  { return p_device_lost_epoch > quint64(QDateTime::currentMSecsSinceEpoch()); }
 
   bool operator==(SvSignal& other) const
   { 
-    return p_info.id == other.info()->id;
+    return p_config.id == other.config()->id;
   }
   
   bool operator==(SvSignal* other) const
   { 
-    return p_info.id == other->info()->id;
+    return p_config.id == other->config()->id;
   }
 
   qreal previousValue() const { return p_previous_value; }
 
   bool setLostValue()
   {
-    if(p_value != p_info.timeout_value) {
+    if(p_value != p_config.timeout_value) {
 
       p_previous_value = p_value;
-      p_value = p_info.timeout_value;
+      p_value = p_config.timeout_value;
       return true;
     }
 
@@ -306,7 +284,7 @@ public:
   }
   
 private:
-  SignalInfo p_info;
+  SignalConfig p_config;
   
   QDateTime p_last_update;
   quint64 p_lost_epoch = 0;

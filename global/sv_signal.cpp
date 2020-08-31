@@ -1,8 +1,8 @@
 ﻿#include "sv_signal.h"
 
-SvSignal::SvSignal(SignalInfo &info)
+SvSignal::SvSignal(SignalConfig &config)
 {
-  setup(info);
+  configure(config);
 }
 
 SvSignal::~SvSignal()
@@ -15,6 +15,6 @@ void SvSignal::setValue(qreal value)
   p_previous_value = p_value;
   p_value = value;
   p_last_update = QDateTime::currentDateTime();
-  p_lost_epoch = p_last_update.toMSecsSinceEpoch() + p_info.timeout;
+  p_lost_epoch = p_last_update.toMSecsSinceEpoch() + p_config.timeout;
 }
 

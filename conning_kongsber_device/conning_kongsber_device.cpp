@@ -69,11 +69,11 @@ void ConningKongsberDevice::addSignal(SvSignal* signal) throw(SvException)
 
   ckng::SignalParams p = ckng::SignalParams::fromSignal(signal);
 
-  if(signal->info()->type == "GEN")
-    SignalsGEN.insert(p.group * 16 + p.word, signal->info()->name);
+  if(signal->config()->type == "GEN")
+    SignalsGEN.insert(p.group * 16 + p.word, signal->config()->name);
 
-  else if(signal->info()->type == "XDR")
-    SignalsXDR.insert(p.group * 16 + p.word, signal->info()->name);
+  else if(signal->config()->type == "XDR")
+    SignalsXDR.insert(p.group * 16 + p.word, signal->config()->name);
 
 }
 
@@ -573,7 +573,7 @@ void ConningKongsberGenericThread::parse_XDR(const QString& message)
 
     QString signal_name = SignalsXDR->value(type * 16 + i);
     qreal a = match.captured(QString("a%1").arg(i + 1)).toDouble(&ok); // captured(0) содержит саму строку
-    p_device->setSignalValue(signal_name, ok ? a: p_device->Signals()->value(signal_name)->info()->timeout_value);
+    p_device->setSignalValue(signal_name, ok ? a: p_device->Signals()->value(signal_name)->config()->timeout_value);
 
 
   }

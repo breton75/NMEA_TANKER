@@ -19,6 +19,8 @@
 #include <QJsonObject>
 
 #include "../global/sv_abstract_device.h"
+#include "../global/sv_abstract_storage.h"
+
 #include "../global/sql_defs.h"
 #include "../global/global_defs.h"
 #include "../global/sv_signal.h"
@@ -31,13 +33,13 @@
 #include "../../svlib/sv_exception.h"
 #include "../../svlib/sv_config.h"
 
-#include "sv_storage.h"
+//#include "sv_storage.h"
 #include "sv_webserver.h"
 
-SvPGDB* PG = nullptr;
+//SvPGDB* PG = nullptr;
 
 QMap<int, ad::SvAbstractDevice*> DEVICES;
-QMap<int, SvStorage*> STORAGES;
+QMap<int, as::SvAbstractStorage*> STORAGES;
 QMap<int, SvSignal*> SIGNALS;
 
 QMap<int, sv::SvAbstractLogger*> LOGGERS;
@@ -79,14 +81,12 @@ bool parse_params(const QStringList &args, AppConfig& cfg, const QString& file_n
 bool initConfig(const AppConfig &cfg);
 void close_db();
 bool readDevices(const AppConfig& cfg);
-bool readStorages();
+bool readStorages(const AppConfig& cfg);
 bool readSignals();
 QJsonArray parse_signals() throw(SvException);
 
 ad::SvAbstractDevice* create_device(const ad::DeviceInfo &info) throw(SvException);
-//SvStorage* create_storage(const QJsonObject &o) throw(SvException);
-//SvCOB* create_cob(const QSqlQuery* q);
-//SvSignal* create_signal(const SignalInfo &info);
+as::SvAbstractStorage* create_storage(const as::StorageConfig& config) throw(SvException);
 
 //sv::SvAbstractLogger* create_logger(const sv::log::Options& options, const QString& sender);
 
@@ -591,7 +591,7 @@ int main(int argc, char *argv[])
 
 //    /** читаем устройства, репозитории и сигналы. СИГНАЛЫ В ПОСЛЕДНЮЮ ОЧЕРЕДЬ! **/
     if(!readDevices(cfg)) exception.raise(-20);
-    if(!readStorages()) exception.raise(-30);
+    if(!readStorages(cfg)) exception.raise(-30);
 
     if(!readSignals()) exception.raise(-40);
 
@@ -670,17 +670,17 @@ void signal_handler(int sig)
 
 }
 
-void close_db()
-{
-  if(PG) {
-    QString db_connect_name = PG->db.connectionName();
-    delete PG; // хз как это работает. но работает
-    QSqlDatabase::removeDatabase(db_connect_name);
-  }
+//void close_db()
+//{
+//  if(PG) {
+//    QString db_connect_name = PG->db.connectionName();
+//    delete PG; // хз как это работает. но работает
+//    QSqlDatabase::removeDatabase(db_connect_name);
+//  }
 
-  PG = nullptr;
+//  PG = nullptr;
 
-}
+//}
 
 bool initConfig(const AppConfig& cfg)
 {
@@ -827,7 +827,7 @@ bool readDevices(const AppConfig& cfg)
   }
 }
 
-bool readStorages()
+bool readStorages(const AppConfig& cfg)
 {
   dbus << llinf << me << mtinf << QString("Читаем данные хранилищ:") << sv::log::endl;
   
@@ -846,19 +846,40 @@ bool readStorages()
       for(QJsonValue v: storage_list) {
 
         /** поторошим параметры хранилища **/
-        StorageParams params = StorageParams::fromJsonObject(v.toObject());
+        as::StorageConfig storage_cfg = as::StorageConfig::fromJsonObject(v.toObject());
 
-        if(STORAGES.contains(params.id))
-          exception.raise(QString("Хранилище %1. Повторяющийся идентификатор %2!").arg(params.name).arg(params.id));
+        if(STORAGES.contains(storage_cfg.id))
+          exception.raise(QString("Хранилище %1. Повторяющийся идентификатор %2!")
+                          .arg(storage_cfg.name).arg(storage_cfg.id));
+
+
+        if(!storage_cfg.active)
+          continue;
+
+        dbus << lldbg << mtdbg << me
+             << QString("  %1: параметры прочитаны").arg(storage_cfg.name) << sv::log::endl;
+
+        if(STORAGES.contains(storage_cfg.id))
+          exception.raise(QString("Хранилище %1. Повторяющийся идентификатор %2!")
+                          .arg(storage_cfg.name).arg(storage_cfg.id));
 
         /** создаем объект хранилища **/
-        SvStorage* newstorage = new SvStorage(params, dbus);
+        as::SvAbstractStorage* newstorage = create_storage(storage_cfg);
 
         if(newstorage) {
 
-          STORAGES.insert(newstorage->params()->id, newstorage);
+          STORAGES.insert(newstorage->config()->id, newstorage);
 
-          dbus << lldbg << me << mtdbg << QString("  %1 [Индекс %2] %3:%4").arg(newstorage->params()->name).arg(newstorage->params()->id).arg(newstorage->params()->host).arg(newstorage->params()->port) << sv::log::endl;
+          if(cfg.log_options.logging)
+          {
+            LOGGERS.insert(newstorage->config()->id, new sv::SvDBus(cfg.log_options));
+
+            newstorage->setLogger(LOGGERS.value(newstorage->config()->id));
+          }
+
+
+          dbus << lldbg << me << mtdbg << QString("  %1 (ID: %2, Тип: %3, Параметры: %4)").arg(newstorage->config()->name)
+                  .arg(newstorage->config()->id).arg(newstorage->config()->type).arg(newstorage->config()->params) << sv::log::endl;
 
           counter++;
 
@@ -911,25 +932,25 @@ bool readSignals()
     for(QJsonValue v: signal_list) {
 
       /* потрошим параметры */
-      SignalInfo info = SignalInfo::fromJsonObject(v.toObject());
+      SignalConfig signal_cfg = SignalConfig::fromJsonObject(v.toObject());
 
-      if(!info.active)
+      if(!signal_cfg.active)
         continue;
 
-      dbus << lldbg2 << mtdbg << me << QString("  %1: параметры прочитаны").arg(info.name) << sv::log::endl;
+      dbus << lldbg2 << mtdbg << me << QString("  %1: параметры прочитаны").arg(signal_cfg.name) << sv::log::endl;
 
       /* создаем объект */
-      SvSignal* newsig = new SvSignal(info);
+      SvSignal* newsig = new SvSignal(signal_cfg);
       
       if(newsig) {
 
         if(SIGNALS.contains(newsig->id()))
-          exception.raise(QString("Сигнал %1. Повторяющийся идентификатор %2!").arg(newsig->info()->name).arg(newsig->id()));
+          exception.raise(QString("Сигнал %1. Повторяющийся идентификатор %2!").arg(newsig->config()->name).arg(newsig->id()));
 
         SIGNALS.insert(newsig->id(), newsig);
         
-        if(newsig->info()->name.length() > max_sig)
-          max_sig = newsig->info()->name.length();
+        if(newsig->config()->name.length() > max_sig)
+          max_sig = newsig->config()->name.length();
 
         if(newsig->id() > max_sig_id) max_sig_id = newsig->id();
 
@@ -937,9 +958,9 @@ bool readSignals()
         webserver.addSignal(newsig);
 
         // раскидываем сигналы по устройствам
-        if(DEVICES.contains(newsig->info()->device_id)) {
+        if(DEVICES.contains(newsig->config()->device_id)) {
 
-          ad::SvAbstractDevice* device = DEVICES.value(newsig->info()->device_id);
+          ad::SvAbstractDevice* device = DEVICES.value(newsig->config()->device_id);
 
           device->addSignal(newsig);
 
@@ -948,11 +969,11 @@ bool readSignals()
 
 
           // раскидываем сигналы по хранилищам
-          for(int storage_id: newsig->info()->storages)
+          for(int storage_id: newsig->config()->storages)
           {
             if(STORAGES.contains(storage_id))
             {
-              SvStorage* storage = STORAGES.value(storage_id);
+              as::SvAbstractStorage* storage = STORAGES.value(storage_id);
 
               storage->addSignal(newsig);
 
@@ -963,7 +984,7 @@ bool readSignals()
           }
         }
         else
-          dbus << llerr << me << mterr << QString("Сигнал '%1' не привязан ни к одному устройству!").arg(newsig->info()->name) << sv::log::endl;
+          dbus << llerr << me << mterr << QString("Сигнал '%1' не привязан ни к одному устройству!").arg(newsig->config()->name) << sv::log::endl;
 
         counter++;
 
@@ -980,20 +1001,20 @@ bool readSignals()
         QString idstr = QString("%1").arg(s->id());
         result.append(QString(QString::number(max_sig_id).length() - idstr.length(), ' ')).append(idstr).append("---");
 
-        QString line1 = QString(max_sig - s->info()->name.length() + 3, QChar('-'));
-        result.append(s->info()->name).append(line1);
+        QString line1 = QString(max_sig - s->config()->name.length() + 3, QChar('-'));
+        result.append(s->config()->name).append(line1);
 
         QString line2 = QString(max_dev, '-');
-        if(DEVICES.contains(s->info()->device_id)) {
-          line2 = QString(max_dev - DEVICES.value(s->info()->device_id)->info()->name.length() + 3, '-');
-          result.append(DEVICES.value(s->info()->device_id)->info()->name).append(line2);
+        if(DEVICES.contains(s->config()->device_id)) {
+          line2 = QString(max_dev - DEVICES.value(s->config()->device_id)->info()->name.length() + 3, '-');
+          result.append(DEVICES.value(s->config()->device_id)->info()->name).append(line2);
         }
         else result.append(line2);
 
-        for(int i: s->info()->storages)
+        for(int i: s->config()->storages)
         {
           if(STORAGES.contains(i))
-            result.append(STORAGES.value(i)->params()->name).append(QString(max_str - STORAGES.value(i)->params()->name.length() + 3, '-'));
+            result.append(STORAGES.value(i)->config()->name).append(QString(max_str - STORAGES.value(i)->config()->name.length() + 3, '-'));
         }
 
         dbus << lldbg2 << me << mtdbg << result << sv::log::endl;
@@ -1108,6 +1129,56 @@ ad::SvAbstractDevice* create_device(const ad::DeviceInfo& info) throw(SvExceptio
   }
 }
 
+as::SvAbstractStorage* create_storage(const as::StorageConfig& config) throw(SvException)
+{
+  as::SvAbstractStorage* newstorage = nullptr;
+
+  try {
+
+    QLibrary storelib(config.driver_lib); // "/home/user/nmea/lib/libtestlib.so.1.0.0"); //
+
+    if(!storelib.load())
+      throw SvException(storelib.errorString());
+
+    dbus << lldbg << mtdbg << me
+         << QString("  %1: драйвер загружен").arg(config.name) << sv::log::endl;
+
+    typedef as::SvAbstractStorage *(*create_storage_func)(void);
+    create_storage_func create = (create_storage_func)storelib.resolve("create");
+
+    if (create)
+      newstorage = create();
+
+    else
+      throw SvException(storelib.errorString());
+
+    if(!newstorage)
+      throw SvException("Неизвестная ошибка при создании объекта устройства");
+
+    if(!newstorage->configure(config))
+      throw SvException(newstorage->lastError());
+
+    dbus << lldbg << mtdbg << me
+         << QString("  %1: объект создан").arg(config.name) << sv::log::endl;
+
+    return newstorage;
+
+  }
+
+  catch(SvException& e) {
+
+//    dbus << llerr << me << mterr << QString("Ошибка: %1\n").arg(e.error) << sv::log::endl;
+    if(newstorage)
+      delete newstorage;
+
+    newstorage = nullptr;
+
+    throw e;
+
+  }
+}
+
+
 
 bool openDevices()
 {
@@ -1148,22 +1219,19 @@ bool initStorages()
    dbus << llinf << me << mtinf << "Инициализируем хранилища:" <<  sv::log::endl;
   
    try {
-     
-     foreach(SvStorage* storage, STORAGES.values()) {
+
+     foreach(as::SvAbstractStorage* storage, STORAGES.values()) {
 
        if(storage->signalsCount()) {
 
          if(!storage->init())
-           exception.raise(QString("%1: %2").arg(storage->params()->name)
+           exception.raise(QString("%1: %2").arg(storage->config()->name)
                                             .arg(storage->lastError()));
-
          storage->start();
 
          dbus << lldbg << me << mtdbg
-              << QString("  %1 (%2:%3): OK")
-                   .arg(storage->params()->name)
-                   .arg(storage->params()->host)
-                   .arg(storage->params()->port)
+              << QString("  %1: OK")
+                   .arg(storage->config()->name)
                 << sv::log::endl;
 
        }
@@ -1227,7 +1295,7 @@ void deinitStorages()
   int counter = 0;
   foreach (int key, STORAGES.keys()) {
 
-    SvStorage* storage = STORAGES.value(key);
+    as::SvAbstractStorage* storage = STORAGES.value(key);
 
 //    if(detiled)
 //      lout << QString("  %1\t%2:%3:").arg(storage->params()->name).arg(storage->params()->host).arg(storage->params()->port) << sv::log::endi;

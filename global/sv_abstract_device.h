@@ -337,10 +337,10 @@ public:
 //  void addSignal(SvSignal* signal) { p_signals.insert(signal->params()->name, signal); }
   virtual void addSignal(SvSignal* signal) throw(SvException)
   {
-    if(p_signals.contains(signal->info()->name))
-      throw SvException(QString("Повторяющееся имя сигнала: %1").arg(signal->info()->name));
+    if(p_signals.contains(signal->config()->name))
+      throw SvException(QString("Повторяющееся имя сигнала: %1").arg(signal->config()->name));
 
-    p_signals.insert(signal->info()->name, signal);
+    p_signals.insert(signal->config()->name, signal);
   }
 
   virtual void clearSignals()              throw(SvException) { p_signals.clear(); }

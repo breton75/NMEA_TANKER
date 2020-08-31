@@ -50,14 +50,14 @@ public:
 
   void addSignal(SvSignal* signal) throw(SvException)
   {
-    if(m_signals_by_id.contains(signal->info()->id))
-      throw SvException(QString("Повторяющееся id сигнала: %1").arg(signal->info()->id));
+    if(m_signals_by_id.contains(signal->config()->id))
+      throw SvException(QString("Повторяющееся id сигнала: %1").arg(signal->config()->id));
 
-    if(m_signals_by_name.contains(signal->info()->name))
-      throw SvException(QString("Повторяющееся id сигнала: %1").arg(signal->info()->name));
+    if(m_signals_by_name.contains(signal->config()->name))
+      throw SvException(QString("Повторяющееся id сигнала: %1").arg(signal->config()->name));
 
-    m_signals_by_id.insert(signal->info()->id, signal);
-    m_signals_by_name.insert(signal->info()->name, signal);
+    m_signals_by_id.insert(signal->config()->id, signal);
+    m_signals_by_name.insert(signal->config()->name, signal);
   }
 
 private:
