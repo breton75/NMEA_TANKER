@@ -26,7 +26,7 @@ namespace as {
   {
     int     id          = -1;
     QString name        = "";
-    bool    active      = false;
+    bool    enable      = false;
     QString params      = "";
     QString driver_lib  = "";
     QString type        = "";
@@ -124,9 +124,9 @@ namespace as {
       P = P_DESCRIPTION;
       p.description = object.contains(P) ? object.value(P).toString("") : "";
 
-      /* active */
-      P = P_ACTIVE;
-      p.active = object.contains(P) ? object.value(P).toBool(true) : true;
+      /* enable */
+      P = P_ENABLE;
+      p.enable = object.contains(P) ? object.value(P).toBool(true) : true;
 
       /* debug */
       P = P_DEBUG;
@@ -158,7 +158,7 @@ namespace as {
 
       j.insert(P_ID, QJsonValue(static_cast<int>(id)).toInt());
       j.insert(P_NAME, QJsonValue(name).toString());
-      j.insert(P_ACTIVE, QJsonValue(active).toBool());
+      j.insert(P_ENABLE, QJsonValue(enable).toBool());
       j.insert(P_PARAMS, QJsonValue(params).toString());
       j.insert(P_DRIVER, QJsonValue(driver_lib).toString());
       j.insert(P_DESCRIPTION, QJsonValue(description).toString());

@@ -32,7 +32,7 @@ struct SignalConfig
   QList<int>  storages;
   QString     params = "";
   QString     type = "";
-  bool        active = false;
+  bool        enable = false;
   QString     description = "";
   int         timeout = 3000;
   int         timeout_value = -3;
@@ -136,15 +136,6 @@ struct SignalConfig
     }
     else p.storages = QList<int>();
 
-    /* active */
-    P = P_ACTIVE;
-    if(object.contains(P)) {
-
-      p.active = object.value(P).toBool(true);
-
-    }
-    else p.active = true;
-
     /* type */
     P = P_TYPE;
     if(object.contains(P)) {
@@ -175,6 +166,9 @@ struct SignalConfig
     }
     else p.timeout = 3000;
 
+    /* enable */
+    P = P_ENABLE;
+    p.enable = object.contains(P) ? object.value(P).toBool(true) : true;
 
     /* params */
     P = P_PARAMS;
@@ -219,7 +213,7 @@ struct SignalConfig
 
     j.insert(P_ID, QJsonValue(static_cast<int>(id)).toInt());
     j.insert(P_NAME, QJsonValue(name).toString());
-    j.insert(P_ACTIVE, QJsonValue(active).toBool());
+    j.insert(P_ENABLE, QJsonValue(enable).toBool());
     j.insert(P_DEVICE, QJsonValue(device_id).toInt());
     j.insert(P_STORAGES, QJsonValue(a));
     j.insert(P_TYPE, QJsonValue(type).toString());

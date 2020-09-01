@@ -33,7 +33,7 @@
 
 #define PG_FUNC_SET_VALUES "select %1('%2', '%3');"
 #define PG_FUNC_SET_RESERVE_VALUES "select %1('%2', '%3');"
-
+#define PG_FUNC_SET_VALUES1 "select set_values(':s_type', ':values');"
 
 extern "C" {
 
@@ -55,7 +55,7 @@ namespace pgsp {
     QString login           = "postgres";
     QString pass            = "postgres";
     QString role            = "postgres";
-    quint32 interval        = 1000;
+    int     interval        = 1000;
     QString func_set_values = "set_values";
     QString func_set_reserv = "set_reserv";
 
@@ -68,7 +68,9 @@ namespace pgsp {
         throw SvException(err.errorString());
 
       try {
+
         return fromJsonObject(jd.object());
+
       }
       catch(SvException e) {
         throw e;
@@ -165,7 +167,6 @@ namespace pgsp {
       P = P_FUNC_RESERV;
       p.func_set_reserv = object.contains(P) ? object.value(P).toString("set_reserv") : "set_reserv";
 
-
       return p;
 
     }
@@ -249,8 +250,6 @@ public:
 
   void run() Q_DECL_OVERRIDE;
   void stop();
-
-  void conform(const QString& jsonParams) throw(SvException);
 
 private:
 

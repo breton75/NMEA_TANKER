@@ -9,7 +9,7 @@
 #define P_DESCRIPTION "description"
 #define P_DRIVER      "driver"
 #define P_TIMEOUT     "timeout"
-#define P_ACTIVE      "active"
+#define P_ENABLE      "enable"
 #define P_DEBUG       "debug"
 #define P_DEBUG2      "debug2"
 #define P_COMMENT     "comment"

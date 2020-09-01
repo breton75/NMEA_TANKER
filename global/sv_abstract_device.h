@@ -30,7 +30,7 @@ namespace ad {
   {
     int     id = -1;
     QString name = "";
-    bool    active = false;
+    bool    enable = false;
     QString hwcode = "";
     QString ifc_name = "";
     QString ifc_params = "";
@@ -170,58 +170,27 @@ namespace ad {
 
       /* hwcode */
       P = P_HWCODE;
-      if(object.contains(P)) {
-
-        p.hwcode = object.value(P).toString("");
-
-      }
-      else p.hwcode = "";
+      p.hwcode = object.contains(P) ? object.value(P).toString("") : "";
 
       /* description */
       P = P_DESCRIPTION;
-      if(object.contains(P)) {
+      p.description = object.contains(P) ? object.value(P).toString("") : "";
 
-        p.description = object.value(P).toString("");
-
-      }
-      else p.description = "";
-
-      /* active */
-      P = P_ACTIVE;
-      if(object.contains(P)) {
-
-        p.active = object.value(P).toBool(false);
-
-      }
-      else p.active = true;
+      /* enable */
+      P = P_ENABLE;
+      p.enable = object.contains(P) ? object.value(P).toBool(false) : true;
 
       /* debug */
       P = P_DEBUG;
-      if(object.contains(P)) {
-
-        p.debug = object.value(P).toBool(false);
-
-      }
-      else p.debug = false;
+      p.debug = object.contains(P) ? object.value(P).toBool(false) : false;
 
       /* debug2 */
       P = P_DEBUG2;
-      if(object.contains(P)) {
-
-        p.debug2 = object.value(P).toBool(false);
-
-      }
-      else p.debug2 = false;
+      p.debug2 = object.contains(P) ? object.value(P).toBool(false) : false;
 
       /* comment */
       P = P_COMMENT;
-      if(object.contains(P)) {
-
-        p.comment = object.value(P).toString("");
-
-      }
-      else p.comment = "";
-
+      p.comment = object.contains(P) ? object.value(P).toString("") : "";
 
       return p;
 
@@ -241,7 +210,7 @@ namespace ad {
 
       j.insert(P_ID, QJsonValue(static_cast<int>(id)).toInt());
       j.insert(P_NAME, QJsonValue(name).toString());
-      j.insert(P_ACTIVE, QJsonValue(active).toBool());
+      j.insert(P_ENABLE, QJsonValue(enable).toBool());
       j.insert(P_IFC, QJsonValue(ifc_name).toString());
       j.insert(P_IFC_PARAMS, QJsonValue(ifc_params).toString());
       j.insert(P_DEV_PARAMS, QJsonValue(dev_params).toString());

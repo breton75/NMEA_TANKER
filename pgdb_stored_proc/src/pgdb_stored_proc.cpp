@@ -37,7 +37,7 @@ bool pgsp::pgStoredProcStorage::configure(const as::StorageConfig& config)
   try {
 
     /* парсим - проверяем, что парметры заданы верно */
-    pgsp::StorageParams::fromJson(p_config.params);
+    m_params = pgsp::StorageParams::fromJson(p_config.params);
 
     p_is_configured = true;
 
@@ -57,6 +57,7 @@ bool pgsp::pgStoredProcStorage::configure(const as::StorageConfig& config)
 bool pgsp::pgStoredProcStorage::init()
 {
   try {
+
     p_thread = new pgsp::pgStoredProcThread(this);
 
     if(!p_thread->init())
@@ -144,9 +145,9 @@ void pgsp::pgStoredProcStorage::start()
     return;
 
 //  connect(_thr, &pgsp::pgStoredProcThread::finished, _thr, &pgsp::pgStoredProcThread::deleteLater);
-  connect(p_thread, &pgsp::pgStoredProcThread::finished, this, &pgsp::pgStoredProcStorage::deleteThread);
+  connect((pgsp::pgStoredProcThread*)p_thread, &pgsp::pgStoredProcThread::finished, this, &pgsp::pgStoredProcStorage::deleteThread);
 //  connect(_thr, &pgsp::pgStoredProcThread::finished, [=](){ delete _thr; _thr = nullptr; } );
-  connect(p_thread, &pgsp::pgStoredProcThread::finished, this, &pgsp::pgStoredProcStorage::start_reconnect_timer);
+  connect((pgsp::pgStoredProcThread*)p_thread, &pgsp::pgStoredProcThread::finished, this, &pgsp::pgStoredProcStorage::start_reconnect_timer);
   connect((pgsp::pgStoredProcThread*)p_thread, &pgsp::pgStoredProcThread::error, this, &pgsp::pgStoredProcStorage::logerr);
 
   p_thread->start();
@@ -172,28 +173,19 @@ pgsp::pgStoredProcThread::pgStoredProcThread(as::SvAbstractStorage* storage):
 
 }
 
-void pgsp::pgStoredProcThread::conform(const QString& jsonParams) throw(SvException)
-{
-  try {
-
-    m_params = pgsp::StorageParams::fromJson(jsonParams);
-
-  }
-  catch(SvException& e) {
-
-    throw e;
-  }
-}
-
 bool pgsp::pgStoredProcThread::init()
 {
   try {
+
+    m_params = pgsp::StorageParams::fromJson(p_storage->config()->params);
+
 
     PGDB = new SvPGDB();
     PGDB->setConnectionParams(m_params.db, m_params.host, m_params.port,
                               m_params.login, m_params.pass, m_params.role);
 
     QSqlError err = PGDB->connectToDB(QString("PGConn_%1").arg(p_storage->config()->id));
+
     if(err.type() != QSqlError::NoError)
       throw SvException(err.text());
 
@@ -244,7 +236,6 @@ void pgsp::pgStoredProcThread::run()
     if(elapsed_time.elapsed() < m_params.interval )
       continue;
 
-
     elapsed_time.restart();
 
     QMap<QString, QString> signals_values;  //  = {{T_GEN, QString()}, {T_XDR, QString()}};
@@ -267,7 +258,6 @@ void pgsp::pgStoredProcThread::run()
       if((signal->config()->timeout >  0 && signal->isAlive()) ||
          (signal->config()->timeout == 0 && signal->isDeviceAlive()))
       {
-
         if(signals_values.contains(signal->config()->type))
           signals_values[signal->config()->type] += QString("%1;%2|").arg(signal->id()).arg(signal->value());
 
@@ -309,7 +299,7 @@ void pgsp::pgStoredProcThread::run()
       }
     }
 
-    /** здесь проверяем флаг _started. если _started = false, то есть пришел внешний сигнал на завершение потока,
+    /** здесь проверяем флаг p_started. если p_started = false, то есть пришел внешний сигнал на завершение потока,
      * то проходим по всем сигналам, и присваиваем им timeout_value.
      * присваиваем _need_to_finish = true. после прохода по всем сигналам, будет произведена запись в БД
      * на следующем прходе, главный цикл завершится, т.к. _need_to_finish уже true
@@ -333,11 +323,6 @@ void pgsp::pgStoredProcThread::run()
 
     try {
 
-//      emit error(signals_values.value("D"));
-//      emit error(signals_values.value("A"));
-//      emit error(signals_reserve.value("D"));
-//      emit error(signals_reserve.value("A"));
-
       foreach (QString type, signals_values.keys()) {
 
         if(!signals_values.value(type).isEmpty()) {
@@ -346,7 +331,8 @@ void pgsp::pgStoredProcThread::run()
 
           QSqlError serr = PGDB->execSQL(QString(PG_FUNC_SET_VALUES)
                                          .arg(m_params.func_set_values)
-                                         .arg(type).arg(signals_values.value(type)));
+                                         .arg(type)
+                                         .arg(signals_values.value(type)));
 
           if(serr.type() != QSqlError::NoError)
             throw SvException(serr.text());
@@ -376,7 +362,8 @@ void pgsp::pgStoredProcThread::run()
       emit error(e.error);
 
       /// если произошла потеря связи с серверм БД, то завершаем поток
-      p_started = PGDB->connected();
+      need_to_finish = PGDB->connected();
+      p_started = PGDB->connected();      // это не работает. встает на db.exec и стоит пока соединение не появится снова
 
       /// если нет, то продолжаем работать
 

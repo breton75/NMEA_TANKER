@@ -762,7 +762,7 @@ bool readDevices(const AppConfig& cfg)
       /** потрошим параметры устройства **/
       ad::DeviceInfo info = ad::DeviceInfo::fromJsonObject(v.toObject());
 
-      if(!info.active)
+      if(!info.enable)
         continue;
 
       dbus << lldbg << mtdbg << me
@@ -776,7 +776,7 @@ bool readDevices(const AppConfig& cfg)
 
       if(newdev) {
 
-        if(newdev->info()->active)
+        if(newdev->info()->enable)
         {
           DEVICES.insert(newdev->info()->id, newdev);
 
@@ -853,7 +853,7 @@ bool readStorages(const AppConfig& cfg)
                           .arg(storage_cfg.name).arg(storage_cfg.id));
 
 
-        if(!storage_cfg.active)
+        if(!storage_cfg.enable)
           continue;
 
         dbus << lldbg << mtdbg << me
@@ -934,7 +934,7 @@ bool readSignals()
       /* потрошим параметры */
       SignalConfig signal_cfg = SignalConfig::fromJsonObject(v.toObject());
 
-      if(!signal_cfg.active)
+      if(!signal_cfg.enable)
         continue;
 
       dbus << lldbg2 << mtdbg << me << QString("  %1: параметры прочитаны").arg(signal_cfg.name) << sv::log::endl;
