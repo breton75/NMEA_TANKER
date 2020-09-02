@@ -210,7 +210,9 @@ void ConningKongsberUDPThread::run()
 
   while(p_is_active) {
 
-    while(socket.waitForReadyRead(1) && p_is_active) {
+    process_signals();
+
+    while(socket.waitForReadyRead(1000) && p_is_active) {
 
       while(socket.hasPendingDatagrams() && p_is_active)
       {
@@ -322,7 +324,9 @@ void ConningKongsberSerialThread::run()
 
   while(p_is_active) {
 
-    while(port.waitForReadyRead(1) && p_is_active) {
+    process_signals();
+
+    while(port.waitForReadyRead(1000) && p_is_active) {
 
       if(p_buff.offset > MAX_PACKET_SIZE)
         reset_buffer();
@@ -412,6 +416,9 @@ void ConningKongsberTestThread::run()
   int ref = 1;
   while(p_is_active)
   {
+
+    process_signals();
+
     QString msg = QString("$IIXDR,%1,1,1,1,1,1,1,0,0,0,0,0,0,1,0,1,0,7*22dd").arg(ref);
 
     memcpy(&p_buff.buf[0], msg.toStdString().c_str(), msg.length());
@@ -444,6 +451,15 @@ void ConningKongsberGenericThread::setSignalsMap(ckng::SignalsMap *smapGEN, ckng
 //  return sv::log::sender::make(p_logger->options().log_sender_name_format,
 //                               p_info.name,
 //                               p_info.index);
+}
+
+void ConningKongsberGenericThread::process_signals()
+{
+  foreach (SvSignal* signal, p_device->Signals()->values()) {
+    if((signal->config()->timeout > 0 && !signal->isAlive()) ||
+       (signal->config()->timeout == 0 && !signal->isDeviceAlive()))
+          signal->setLostValue();
+  }
 }
 
 void ConningKongsberGenericThread::process_data()

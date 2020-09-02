@@ -310,6 +310,10 @@ public:
       throw SvException(QString("Повторяющееся имя сигнала: %1").arg(signal->config()->name));
 
     p_signals.insert(signal->config()->name, signal);
+
+    if(signal->config()->timeout <= 0)
+      p_signals_without_timeout.insert(signal->config()->name, signal);
+
   }
 
   virtual void clearSignals()              throw(SvException) { p_signals.clear(); }
@@ -332,7 +336,7 @@ public:
   {
       p_lost_epoch = QDateTime::currentMSecsSinceEpoch() + p_info.timeout;
 
-      foreach (SvSignal* s, p_signals.values())
+      foreach (SvSignal* s, p_signals_without_timeout.values())
         s->setDeviceLostEpoch(p_lost_epoch);
   }
 
@@ -346,6 +350,7 @@ protected:
   sv::SvAbstractLogger* p_logger;
 
   ad::SignalMap p_signals;
+  ad::SignalMap p_signals_without_timeout;
 
   SvException p_exception;
   QString p_last_error;
@@ -397,6 +402,7 @@ protected:
   SvException p_exception;
 
   virtual void process_data() = 0;
+  virtual void process_signals() = 0;
 
 public slots:
 

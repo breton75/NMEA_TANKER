@@ -3,6 +3,7 @@
 SvSignal::SvSignal(SignalConfig &config)
 {
   configure(config);
+  setValue(p_config.timeout_value); // обязательно инициализируем значением
 }
 
 SvSignal::~SvSignal()

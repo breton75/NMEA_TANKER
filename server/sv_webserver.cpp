@@ -150,6 +150,7 @@ void SvWebServer::readClient()
       {
         if(name.trimmed().isEmpty())
           continue;
+
         if(m_signals_by_name.contains(name))
           json.append(QString("{\"name\":\"%1\",\"value\":%2},")
                         .arg(name).arg(m_signals_by_name.value(name)->value()));
@@ -191,13 +192,7 @@ void SvWebServer::readClient()
           .append("[").append(json).append("]\n");
 
     replay << answer;
-//        << "HTTP/1.0 200 Ok\r\n"
-//           << "Content-Type: application/json; charset=\"utf-8\"\r\n"
-//           << QString("Content-Length: %1\r\n").arg(json.length() + 2)
-//           << "Access-Control-Allow-Origin: *\r\n"
-//           << "Access-Control-Allow-Headers: *\r\n"
-//           << "Origin: file://\r\n\r\n" //! обязательно два!
-//           << "[" << json << "]\n"; // формируем ответ в формате JSON
+
     if(m_logger && m_logger->options().log_level >= sv::log::llDebug2)
       *m_logger << sv::log::llDebug2 << sv::log::mtDebug << answer << sv::log::endl;
 

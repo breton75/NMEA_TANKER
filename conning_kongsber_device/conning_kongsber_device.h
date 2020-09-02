@@ -128,8 +128,8 @@ protected:
   ckng::SignalsMap* SignalsGEN;
   ckng::SignalsMap* SignalsXDR;
 
-
   void process_data();
+  void process_signals();
 
 private:
 //  QString m_current_message;

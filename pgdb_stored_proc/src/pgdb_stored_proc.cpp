@@ -286,8 +286,8 @@ void pgsp::pgStoredProcThread::run()
 
         else
         {
-          /* если сигналу уже назначено значение timeout_value, то setLostValue вернет false */
-          if(signal->setLostValue())
+          /* если сигналу уже назначено значение timeout_value, то не добавляем сигнал к скрипту */
+          if(signal->previousValue() != signal->value())
           {
             if(signals_values.contains(signal->config()->type))
               signals_values[signal->config()->type] += QString("%1;%2|").arg(signal->id()).arg(signal->config()->timeout_value);
@@ -306,7 +306,6 @@ void pgsp::pgStoredProcThread::run()
      * такая схема применена для гарантированной записи в БД значений timeout_value при завершении работы сервера */
     if(!p_started)
     {
-
       for(SvSignal* signal: *p_signals) {
 
         if(signals_values.contains(signal->config()->type))
