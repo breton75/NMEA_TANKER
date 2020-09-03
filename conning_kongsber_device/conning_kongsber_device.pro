@@ -12,6 +12,7 @@ TARGET = /home/user/nmea/lib/conning_kongsber
 TEMPLATE = lib
 
 CONFIG += c++11
+CONFIG += plugin
 
 #чтобы не цеплять версию к имени файла
 #CONFIG += plugin

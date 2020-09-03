@@ -21,6 +21,7 @@
 #include "../../svlib/sv_exception.h"
 
 // имена параметров для UDP
+#define P_UDP_IFC       "ifc"
 #define P_UDP_HOST      "host"
 #define P_UDP_RECV_PORT "recv_port"
 #define P_UDP_SEND_PORT "send_port"
@@ -34,6 +35,7 @@ const QMap<QString, QHostAddress::SpecialAddress> SpecialHosts = {{"localhost", 
 /** структура для хранения параметров udp **/
 struct UdpParams {
 
+  QString      ifc  = "";
   QHostAddress host = QHostAddress::Any;
   quint16 recv_port = 6001;
   quint16 send_port = 5001;
@@ -60,10 +62,13 @@ struct UdpParams {
   {
     UdpParams p;
     SvException excpt;
+    QString P;
 
-    if(object.contains(P_UDP_HOST)) {
+    /* host */
+    P = P_UDP_HOST;
+    if(object.contains(P)) {
 
-      QString host = object.value(P_UDP_HOST).toString("").toLower();
+      QString host = object.value(P).toString("").toLower();
 
       if(SpecialHosts.contains(host)) p.host = QHostAddress(SpecialHosts.value(host));
 
@@ -72,32 +77,44 @@ struct UdpParams {
 
       else
         throw excpt.assign(QString(UDP_IMPERMISSIBLE_VALUE)
-                           .arg(P_UDP_HOST).arg(object.value(P_UDP_HOST).toVariant().toString())
+                           .arg(P).arg(object.value(P).toVariant().toString())
                            .arg("Допускаются ip адреса в формате 129.168.1.1, а также слова localhost, any, broadcast"));
     }
+    p.host = QHostAddress::Any;
 
-    if(object.contains(P_UDP_RECV_PORT)) {
+    /* receive port */
+    P = P_UDP_RECV_PORT;
+    if(object.contains(P)) {
 
-      p.recv_port = object.value(P_UDP_RECV_PORT).toInt(0);
+      p.recv_port = object.value(P).toInt(0);
 
       if(p.recv_port == 0)
         throw excpt.assign(QString(UDP_IMPERMISSIBLE_VALUE)
-                           .arg(P_UDP_RECV_PORT).arg(object.value(P_UDP_RECV_PORT).toVariant().toString())
+                           .arg(P).arg(object.value(P).toVariant().toString())
                            .arg("Допускаются тоьлко числовые значения"));
 
     }
+    p.recv_port = 6001;
 
-    if(object.contains(P_UDP_SEND_PORT))
+    /* send port */
+    P = P_UDP_SEND_PORT;
+    if(object.contains(P))
     {
 
-      p.send_port = object.value(P_UDP_SEND_PORT).toInt(0);
+      p.send_port = object.value(P).toInt(0);
 
       if(p.send_port == 0)
         throw excpt.assign(QString(UDP_IMPERMISSIBLE_VALUE)
-                           .arg(P_UDP_SEND_PORT).arg(object.value(P_UDP_SEND_PORT).toVariant().toString())
+                           .arg(P).arg(object.value(P).toVariant().toString())
                            .arg("Допускаются тоьлко числовые значения"));
 
     }
+    p.send_port = 5001;
+
+    /* ifc */
+    P = P_UDP_IFC;
+    p.ifc = object.contains(P) ? object.value(P).toString() : "";
+
 
     return p;
 

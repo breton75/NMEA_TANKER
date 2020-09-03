@@ -1185,16 +1185,17 @@ bool openDevices()
   dbus << llinf << me << mtinf << "Открываем устройства:" << sv::log::endl;
  
   try {
-    
+    qDebug() << 1;
     for(int key: DEVICES.keys()) {
-      
+      qDebug() << 2;
       ad::SvAbstractDevice* device = DEVICES.value(key);
+      qDebug() << 3;
 
       if(!device->open()) exception.raise(QString("%1 [Индекс %2]: %3")
                                           .arg(device->info()->name)
                                           .arg(device->info()->id)
                                           .arg(device->lastError()));
-
+      qDebug() << 4;
       dbus << lldbg << me << mtdbg<< QString("  %1: OK").arg(device->info()->name) << sv::log::endl;
         
     }

@@ -2,6 +2,7 @@
 #define CONNING_KONGSBER_DEVICE_H
 
 #include <QRegularExpression>
+#include <QNetworkInterface>
 
 #include "conning_kongsber_device_global.h"
 
