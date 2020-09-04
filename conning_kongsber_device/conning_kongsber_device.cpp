@@ -83,18 +83,16 @@ bool ConningKongsberDevice::open()
 
     if(!is_configured)
       p_exception.raise(QString("Для устройства '%1' не задана конфигурация").arg(p_info.name));
-qDebug() << "create_new_thread1";
+
     create_new_thread();
-qDebug() << "create_new_thread2";
+
     p_thread->conform(p_info.dev_params, p_info.ifc_params);
-qDebug() << "conform";
+
     connect(p_thread, &ad::SvAbstractDeviceThread::finished, this, &ConningKongsberDevice::deleteThread);
     connect(this, &ConningKongsberDevice::stopThread, p_thread, &ad::SvAbstractDeviceThread::stop);
-qDebug() << "open1";
+
     p_thread->open();
-    qDebug() << "open2";
     p_thread->start();
-    qDebug() << "start2";
 
     return true;
 
@@ -192,10 +190,9 @@ void ConningKongsberUDPThread::conform(const QString& jsonDevParams, const QStri
 
 void ConningKongsberUDPThread::open() throw(SvException)
 {
-qDebug() << "bind1";
   if(!socket.bind(QHostAddress::Any, ifc_params.recv_port, QAbstractSocket::DontShareAddress))
     throw SvException(socket.errorString());
-qDebug() << "bind2";
+
   // с заданным интервалом сбрасываем буфер, чтобы отсекать мусор и битые пакеты
   p_reset_timer.setInterval(dev_params.reset_timeout);
   p_reset_timer.setSingleShot(true);
